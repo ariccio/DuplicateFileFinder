@@ -34,50 +34,51 @@ class Worker():
     def __init__(self, hashname, rmode='rb', bufsize=16777216, name=None):#268435456 = 2^ 28#2097152
         self.hash_known  = ['md5', 'sha1', 'sha512']
         self.hash_length = { 32:'md5', 40: "sha1", 128: "sha512"}
-        self.bufsize     = bufsize
-        self.hashname    = hashname
-        self.hashdata    = None
+        self.__bufsize     = bufsize
+        self.__hashname    = hashname
+        self.__hashdata    = None
         self.__rmode       = rmode
         if name is not None:
-            self.name = name
+            self.__name = name
         else:
-            self.name = "worker-%s" % self.hashname
-        #logging.debug("%s started!" % self.name)
+            self.__name = "worker-%s" % self.__hashname
 
     def compute(self, fname, incremental = None):
         self.__fname = fname
         try:
-            self.hashdata = hashlib.new(self.hashname)
+            self.__hashdata = hashlib.new(self.__hashname)
         except ValueError:
-            raise NotImplementedError("# %s : hash algorithm [ %s ] not implemented" % (self.name, self.hashname))
+            raise NotImplementedError("# %s : hash algorithm [ %s ] not implemented" % (self.__name, self.__hashname))
         #incremental = True
         except KeyboardInterrupt:
             sys.exit()
         try:
+
             logging.debug('\tcompute opening %s' % ( str(self.__fname) ))
             with open(self.__fname, self.__rmode) as fhandle:
                 if incremental is not None:
                     if NO_HUMANFRIENDLY is None:
-                        logging.debug('\t\treading incrementally... (increments of: %s bytes)' % ( str(self.bufsize) ) )
+                        logging.debug('\t\treading incrementally... (increments of: %s bytes)' % ( str(self.__bufsize) ) )
                     elif NO_HUMANFRIENDLY is not None:
-                        logging.debug('\t\treading incrementally... (increments of: %s)' % ( humanfriendly.format_size(self.bufsize) ) )
-                    data = fhandle.read(self.bufsize)                
+                        logging.debug('\t\treading incrementally... (increments of: %s)' % ( humanfriendly.format_size(self.__bufsize) ) )
+
+                    data = fhandle.read(self.__bufsize)                
                     while(data):
-                        self.hashdata.update(data)
-                        data = fhandle.read(self.bufsize)
+                        self.__hashdata.update(data)
+                        data = fhandle.read(self.__bufsize)
                 else:
                     logging.debug('\t\treading in one huge chunk...')
                     data = fhandle.read()#this is ugly and will break for large files
-                    self.hashdata.update(data)
+                    self.__hashdata.update(data)
         except IOError:
             logging.debug("whoops! IOError in Worker.compute")
         
         except KeyboardInterrupt:
             sys.exit()
 
-        logging.debug('\t\t\t\tfile: "%s" : %s' % (str(self.__fname), str(self.hashdata.hexdigest())) )
-        self.__outTuple = (self.__fname, self.hashdata.hexdigest())
-        return self.__outTuple
+        logging.debug('\t\t\t\tfile: "%s" : %s' % (str(self.__fname), str(self.__hashdata.hexdigest())) )
+        return (self.__fname, self.__hashdata.hexdigest())
+        
         
 
 def getFileSizeFromOS(theFileInQuestion):
@@ -203,11 +204,22 @@ def printDuplicateFilesAndReturnWastedSpace(knownFiles):
 
     return wastedSpace
 
-def fInit(q):
-    '''eeeewwwwww this is disgusting
-    http://stackoverflow.com/questions/3827065/can-i-use-a-multiprocessing-queue-in-a-function-called-by-pool-imap
-    '''
-    Worker.compute.outputHashQueue = q
+
+def walkDirAndReturnQueueOfFiles(directoryToWalk):
+    queueOfFiles = queue.Queue()
+    logging.debug('Walking %s...' % ( str(directoryToWalk) ) )
+    for root, dirs, files in os.walk(directoryToWalk):
+        '''move to:
+            build queue of files -> build pool of processes -> start processes
+            like I did in factah over summer, where mp_factorizer is passed nums(a list of numbers to factorize) and a number nprocs (how many processes)
+
+        '''
+        for fname in files:
+            fullpath = os.path.abspath(os.path.join(root, fname))
+            logging.debug("\tPutting %s in queueOfPathsToFilesToBeHashed"% (str(fullpath))) 
+            queueOfFiles.put(fullpath)
+        queueOfFiles.put(False)
+    return queueOfFiles
 
 def main():
     usage = "usage: %prog [options] arg"
@@ -234,20 +246,8 @@ def main():
             knownFiles[hw] = arg0
 
         elif os.path.isdir(arg0):
-            job_q = queue.Queue()
-            logging.debug('Walking %s...' % ( str(arg0) ) )
-            for root, dirs, files in os.walk(arg0):
-                '''move to:
-                    build queue of files -> build pool of processes -> start processes
-                    like I did in factah over summer, where mp_factorizer is passed nums(a list of numbers to factorize) and a number nprocs (how many processes)
 
-                '''
-                for fname in files:
-                    fullpath = os.path.abspath(os.path.join(root, fname))
-                    logging.debug("\tPutting %s in queueOfPathsToFilesToBeHashed"% (str(fullpath))) 
-                    job_q.put(fullpath)
-                job_q.put(False)
-                
+            job_q = walkDirAndReturnQueueOfFiles(arg0)                
             fileHashes = []
             out_q = queue.Queue()
             
