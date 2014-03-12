@@ -19,6 +19,7 @@ elif sys.version_info.major > 2:
 import logging
 import os
 import hashlib
+import copy
 NO_HUMANFRIENDLY = True
 try:
     import humanfriendly#pip install humansize
@@ -238,9 +239,8 @@ def main():
             options.hashname = "sha1"
             logging.warning("'auto' as hash selected, so defaulting to 'sha1'\n")
 
-        w = Worker(options.hashname)
-
         if os.path.isfile(arg0):
+            w = Worker(options.hashname)
             hw = w.compute(arg0)
             print("%s *%s" % (hw, arg0))
             knownFiles[hw] = arg0
@@ -248,6 +248,42 @@ def main():
         elif os.path.isdir(arg0):
 
             job_q = walkDirAndReturnQueueOfFiles(arg0)                
+            job_q.put(False)
+
+
+            
+            secondaryQueue = queue.Queue()
+            ternaryQueue   = queue.Queue()
+            temp = job_q.get()
+            while temp:
+                secondaryQueue.put(temp)
+                ternaryQueue.put(temp)
+                temp = job_q.get()
+            secondaryQueue.put(False)
+            ternaryQueue.put(False)
+            temp = ternaryQueue.get()
+            while temp:
+                job_q.put(temp)
+                temp = ternaryQueue.get()
+            fileList = []
+            temp = secondaryQueue.get()
+            while temp:
+                fileList.append(temp)
+                temp = secondaryQueue.get()
+            fileSizeDict = {}
+            for aFile in fileList:
+                fileSize = getFileSizeFromOS(aFile)
+                if fileSizeDict.get(fileSize) is None:
+                    fileSizeDict[fileSize] = [aFile]
+                else:
+                    fileSizeDict[fileSize].append(aFile)
+
+            for key in fileSizeDict:
+                print('file of size: %s\n\t%s' % (str(key), str(fileSizeDict[key])) )
+            raw_input('enter to continue')
+
+
+            
             fileHashes = []
             out_q = queue.Queue()
             
