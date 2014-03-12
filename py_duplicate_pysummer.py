@@ -18,10 +18,7 @@ elif sys.version_info.major > 2:
     
 import logging
 import os
-import re
-import math
 import hashlib
-import multiprocessing
 NO_HUMANFRIENDLY = True
 try:
     import humanfriendly#pip install humansize
@@ -35,11 +32,12 @@ version = '1.0'
 
 class Worker():
     def __init__(self, hashname, rmode='rb', bufsize=16777216, name=None):#268435456 = 2^ 28#2097152
-        self.hash_known = ['md5', 'sha1', 'sha512']
+        self.hash_known  = ['md5', 'sha1', 'sha512']
         self.hash_length = { 32:'md5', 40: "sha1", 128: "sha512"}
-        self.bufsize = bufsize
-        self.hashname = hashname
-        self.hashdata = None
+        self.bufsize     = bufsize
+        self.hashname    = hashname
+        self.hashdata    = None
+        self.__rmode       = rmode
         if name is not None:
             self.name = name
         else:
@@ -52,12 +50,12 @@ class Worker():
             self.hashdata = hashlib.new(self.hashname)
         except ValueError:
             raise NotImplementedError("# %s : hash algorithm [ %s ] not implemented" % (self.name, self.hashname))
-        incremental = True
-        #except KeyboardInterrupt:
-            #return
+        #incremental = True
+        except KeyboardInterrupt:
+            sys.exit()
         try:
             logging.debug('\tcompute opening %s' % ( str(self.__fname) ))
-            with open(self.__fname, 'rb') as fhandle:
+            with open(self.__fname, self.__rmode) as fhandle:
                 if incremental is not None:
                     if NO_HUMANFRIENDLY is None:
                         logging.debug('\t\treading incrementally... (increments of: %s bytes)' % ( str(self.bufsize) ) )
@@ -73,17 +71,14 @@ class Worker():
                     self.hashdata.update(data)
         except IOError:
             logging.debug("whoops! IOError in Worker.compute")
-            #return ('','')
+        
         except KeyboardInterrupt:
             sys.exit()
-        #outputHashQueue.put(fname, self.hashdata.hexdigest())
-#        return (fname, self.hashdata.hexdigest())
+
         logging.debug('\t\t\t\tfile: "%s" : %s' % (str(self.__fname), str(self.hashdata.hexdigest())) )
         self.__outTuple = (self.__fname, self.hashdata.hexdigest())
         return self.__outTuple
         
-
-
 
 def getFileSizeFromOS(theFileInQuestion):
     '''
@@ -218,9 +213,12 @@ def main():
     usage = "usage: %prog [options] arg"
     parser = OptionParser(usage=usage)
     parser.add_option("--hash", dest="hashname", default="auto", help="select hash algorithm")
+
     (options, args) = parser.parse_args()
+
     logging.basicConfig(level=logging.DEBUG)
     #logging.basicConfig(level=logging.WARNING)
+
     if args:
         arg0 = args[0]
         knownFiles = {}
@@ -251,17 +249,14 @@ def main():
                 job_q.put(False)
                 
             fileHashes = []
-            # Each process will get 'chunksize' nums and a queue to put his out dict into
             out_q = queue.Queue()
             
-            
-            #logging.debug('All started! Waiting.....')
             aWorker = Worker(options.hashname)
             logging.debug('Starting computation!')
             try:
                 thisHashFileName = job_q.get()
                 while thisHashFileName:
-                    result = aWorker.compute(thisHashFileName)
+                    result = aWorker.compute(thisHashFileName, incremental = True)
                     out_q.put(result)
                     thisHashFileName = job_q.get()
                 out_q.put(False)                
