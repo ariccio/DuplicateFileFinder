@@ -110,8 +110,40 @@ def mCompute(job_q, __hashname, out_q, incremental = None, rmode='rb', bufsize=1
             os.abort()
         #return
 
-def
-                
+
+def getFileSizeFromOS(theFileInQuestion):
+    try:
+        aFileStats = str(os.stat(theFileInQuestion))
+        listAFileStats = aFileStats[aFileStats.index('(')+1 : aFileStats.index(')')].split(', ')
+
+        for item in listAFileStats:
+            listAFileStats[listAFileStats.index(item)] = item.split('=')
+
+        for item in listAFileStats:
+            if item[0] == 'st_size':
+                sizeIndex = listAFileStats.index(item)
+        fileSizeStr = listAFileStats[sizeIndex][1]
+        if fileSizeStr[-1] == 'L':
+            fileSizeInBytes = fileSizeStr[:-1]
+        else:
+            fileSizeInBytes = fileSizeStr
+        try:
+            fileSizeInBytes = int(fileSizeInBytes)
+        except ValueError:#occurs when st_size == ''
+            logging.debug("Whoops! ValueError in getFileSizeFromOS! This usually occurs when st_size == \'\'")
+            logging.debug("\taFileStats       = %s" % aFileStats)
+            logging.debug("\tlistAFileStats   = %s" % (str(listAFileStats)))
+            logging.debug("\tsizeIndex        = %s" % (str(sizeIndex)))
+            logging.debug("\tfileSizeStr      = %s" % fileSizeStr)
+            logging.debug("\tfileSizeStr[:-1] = %s" % (str(fileSizeStr[:-1])))
+            logging.debug("\tfileSizeInBytes:")
+            logging.debug(fileSizeInBytes)
+            fileSizeInBytes = 0
+    except WindowsError:
+        logging.debug("Windows error in printDuplicateFilesAndReturnWastedSpace! May god have mercy on your soul.")
+        pass
+    return fileSizeInBytes
+
 def printDuplicateFilesAndReturnWastedSpace(knownFiles):
     '''
     prints duplicate files (as of now, only those > 0 bytes) in the form of
@@ -252,35 +284,6 @@ def main():
                     '''move to:
                         build queue of files -> build pool of processes -> start processes
                         like I did in factah over summer, where mp_factorizer is passed nums(a list of numbers to factorize) and a number nprocs (how many processes)
-def worker(nums, out_q):
-    """ The worker function, invoked in a process. 'nums' is a list of numbers to factor. The results are placed in a dictionary that's pushed to a queue."""
-    outdict = {}
-    for n in nums:
-        outdict[n] = factorize_naive(n)
-    print(outdict)
-    out_q.put(outdict)
-
-def mp_factorizer(nums, nprocs):
-    # Each process will get 'chunksize' nums and a queue to put his out dict into
-    out_q = multiprocessing.Queue()
-    worker(nums, out_q)
-    chunksize = int(math.ceil(len(nums) / float(nprocs)))
-    procs = []
-    
-    for i in range(nprocs):
-        p = multiprocessing.Process( target=worker, args=(nums[chunksize * i:chunksize * (i + 1)], out_q))
-        procs.append(p)
-        p.start()
-
-    # Collect all results into a single result dict. We know how many dicts with results to expect.
-    resultdict = {}
-    for i in range(nprocs):
-        resultdict.update(out_q.get())
-
-    # Wait for all worker processes to finish
-    for p in procs:
-        p.join()
-    return resultdict
 
                     '''
                     
@@ -297,16 +300,8 @@ def mp_factorizer(nums, nprocs):
                 # Each process will get 'chunksize' nums and a queue to put his out dict into
                 out_q = multiprocessing.Queue()
                 #worker(nums, out_q)
-
-                
                 procs = []
                 nProcesses = 8
-                #partitionedListOfPathsToFilesToBeHashed = []
-                #chunksize = int(math.ceil(len(pathsToFilesToBeHashed) / float(nProcesses)))
-                #logging.debug("chunksize = %i" % chunksize)
-                #for partitionNumber in range(nProcesses):
-                    #partitionedListOfPathsToFilesToBeHashed.append(pathsToFilesToBeHashed[chunksize * partitionNumber : chunksize * (partitionNumber + 1)])
-                    #logging.debug("partitionedListOfPathsToFilesToBeHashed[partitionNumber] = %s" % (str(partitionedListOfPathsToFilesToBeHashed[partitionNumber])))
                 
                 for i in range(nProcesses):
                     logging.debug("starting %i...\tprocs = %s" % (i, str(procs)))
@@ -315,35 +310,9 @@ def mp_factorizer(nums, nprocs):
                     procs.append(p)
                     p.start()
                 logging.debug('All started! Waiting.....')
-                # Collect all results into a single result dict. We know how many dicts with results to expect.
-##               resultdict = {}
-##                for i in range(nProcesses):
-##                    try:
-##                        nextUpdateInQueue = out_q.get()
-##                        resultdict.update(nextUpdateInQueue)
-##                    except ValueError:
-##                        logging.debug("ValueError while collecting results!")
-##                        #logging.debug("Offending item:")
-##                        #for singleUpdate in nextUpdateInQueue:
-##                            #logging.debug(singleUpdate)
+
                 for p in procs:
                     p.join()
-##                
-##                with multiprocessing.Pool(None) as pool:
-##                    logging.debug("entering pool context, with %i files to hash" % len(pathsToFilesToBeHashed))
-##                    complete = len(pathsToFilesToBeHashed)
-##                    #nextFile = queueOfPathsToFilesToBeHashed.get()
-##                    #logging.debug("got '%s' from queueOfPathsToFilesToBeHashed" %(str(nextFile)))
-##                    for nextFile in pathsToFilesToBeHashed:
-##                        #logging.debug("applying %s"%(str(nextFile))) 
-##                        r = (pool.apply_async(w.compute, [nextFile]))
-##                        fileHashes.append(r.get())
-##                        
-##                        #nextFile = queueOfPathsToFilesToBeHashed.get()
-##                #print("%s *%s" % (hw, fullpath))
-##                logging.debug("no longer in pool context")
-                #(fileFullPath, fileHashHex)  = queueOfFileHashes.get()
-                #[logging.debug((fileFullPath, fileHashHex)) for (fileFullPath, fileHashHex) in fileHashes]
                 nextHash = out_q.get()
                 while(nextHash):
                     fileHashes.append(nextHash)
