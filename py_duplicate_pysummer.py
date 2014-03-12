@@ -234,8 +234,6 @@ def printDuplicateFilesAndReturnWastedSpace(knownFiles):
                         logging.debug("\t\t\t%s bytes\t\t\t%s" % (fileSizeInBytes, aSingleFile))
                     elif NO_HUMANFRIENDLY is not None:
                         logging.debug("\t\t\t%s\t\t\t%s" % (humanfriendly.format_size(fileSizeInBytes), aSingleFile))
-        else:
-            logging.debug('\tlen(knownFiles[key]) IS NOT greater than 1')
             
     sortedSizeOfKnownFiles = sorted(sizeOfKnownFiles, key=knownFiles.__getitem__)
     sortedListSize = []
@@ -247,20 +245,7 @@ def printDuplicateFilesAndReturnWastedSpace(knownFiles):
 
     printListOfDuplicateFiles(sortedListSize)
 
-##    if NO_HUMANFRIENDLY is not None:
-##        for item in sortedListSize:
-##            item[0] = humanfriendly.format_size(item[0])
-##
-##    for item in sortedListSize:
-##        print("\n%s:" % (str(item[0])))
-##        for aFileName in item[1]:
-##            try:
-##                print("\t%s" % (str(aFileName)))    
-##            except UnicodeEncodeError:
-##                logging.debug("\t\t\tfilename is evil! filename: ", aFileName)
-##                
-##    
-    return wastedSpace#, sortedSizeOfKnownFiles
+    return wastedSpace
 
 def fInit(q):
     '''eeeewwwwww this is disgusting
@@ -280,7 +265,7 @@ def main():
         knownFiles = {}
         if options.hashname == "auto":
             options.hashname = "sha1"
-            logging.warning("'auto' as hash selected, so defaulting to 'sha1'")
+            logging.warning("'auto' as hash selected, so defaulting to 'sha1'\n")
 
         w = Worker(options.hashname)
 
@@ -290,7 +275,7 @@ def main():
             knownFiles[hw] = arg0
 
         elif os.path.isdir(arg0):
-            pathsToFilesToBeHashed = []
+            job_q = queue.Queue()
             logging.debug('Walking %s...' % ( str(arg0) ) )
             for root, dirs, files in os.walk(arg0):
                 '''move to:
@@ -298,20 +283,15 @@ def main():
                     like I did in factah over summer, where mp_factorizer is passed nums(a list of numbers to factorize) and a number nprocs (how many processes)
 
                 '''
-                    
-                    #######queueOfFileHashes      = multiprocessing.Queue()
-                job_q = queue.Queue()
                 for fname in files:
                     fullpath = os.path.abspath(os.path.join(root, fname))
                     logging.debug("\tPutting %s in queueOfPathsToFilesToBeHashed"% (str(fullpath))) 
                     job_q.put(fullpath)
                 job_q.put(False)
-                #hw = w.compute(fullpath)
+                
             fileHashes = []
             # Each process will get 'chunksize' nums and a queue to put his out dict into
             out_q = queue.Queue()
-            procs = []
-            nProcesses = 8
             
             
             #logging.debug('All started! Waiting.....')
