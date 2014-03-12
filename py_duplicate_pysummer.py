@@ -83,45 +83,6 @@ class Worker():
         return self.__outTuple
         
 
-def mCompute(job_q, __hashname, out_q, incremental = None, rmode='rb', bufsize=16777216, __name=None):
-    __hash_known = ['sha1', 'sha512']
-    __hash_length = { 40: "sha1", 128: "sha512"}
-    __hashdata = None
-    __incremental = True
-    hashDatum = []
-    __outDict = {}
-    logging.debug("worker %s started!" % (str(__name)))
-    while True:
-        try:
-            __hashdata = hashlib.new(__hashname)
-
-        except ValueError:
-            raise NotImplementedError("# %s : hash algorithm [ %s ] not implemented" % (__name, __hashname))
-        
-        try:
-            __job = job_q.get_nowait()
-            logging.debug("%s got job %s" % (str(__name), str(__job)))
-            with open(__job, 'rb') as __fhandle:
-                if __incremental is not None:
-                    __data = __fhandle.read(bufsize)                
-                    while(__data):
-                        __hashdata.update(__data)
-                        __data = __fhandle.read(bufsize)
-                else:
-                    __data = __fhandle.read()#this is ugly and will break for large files
-                    __hashdata.update(__data)
-                __outDict = {__job: __hashdata.hexdigest()}
-                out_q.put(_outDict)
-            
-        except IOError:
-            logging.debug("whoops! IOError in Worker.compute")
-        except queue.Empty:
-            logging.debug('queue.Empty!')
-        except NameError:
-            logging.debug('NameError!')
-            logging.debug(sys.exc_info)
-            os.abort()
-        #return
 
 
 def getFileSizeFromOS(theFileInQuestion):
