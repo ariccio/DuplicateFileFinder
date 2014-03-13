@@ -20,6 +20,7 @@ import logging
 import os
 import hashlib
 import copy
+import io
 NO_HUMANFRIENDLY = True
 try:
     import humanfriendly#pip install humansize
@@ -87,33 +88,43 @@ class Worker():
 
     def computeByteArray(self, fname, incremental=None):
         self.__fname = fname
-        byteBuffer   = bytearray(self.__bufsize)
-        try:
-            self.__hashdata = hashlib.new(self.__hashname)
-        except ValueError:
-            raise NotImplementedError("# %s : hash algorithm [ %s ] not implemented" % (self.__name, self.__hashname))
+        self.__byteBuffer   = bytearray(self.__bufsize)
+        self.__hashdata = hashlib.new('sha1')
         #incremental = True
-        except KeyboardInterrupt:
-            sys.exit()
-        try:
-            logging.info('\tcompute opening %s' % ( str(self.__fname) ))
-            with io.open(self.__fname, 'rb') as fhandle:
-                if NO_HUMANFRIENDLY is None:
-                    logging.debug('\t\treading incrementally... (increments of: %s bytes)' % ( str(self.__bufsize) ) )
-                elif NO_HUMANFRIENDLY is not None:
-                    logging.debug('\t\treading incrementally... (increments of: %s)' % ( humanfriendly.format_size(self.__bufsize) ) )
+        
+        #pre-load globals!
+        localLogging = logging
+        localStr     = str
+##        try:
+##            localLogging.info('\tcompute opening %s' % ( localStr(self.__fname) ))
+##            with io.open(self.__fname, 'rb') as fhandle:
+##                if NO_HUMANFRIENDLY is None:
+##                    localLogging.debug('\t\treading incrementally... (increments of: %s bytes)' % ( localStr(self.__bufsize) ) )
+##                elif NO_HUMANFRIENDLY is not None:
+##                    localLogging.debug('\t\treading incrementally... (increments of: %s)' % ( humanfriendly.format_size(self.__bufsize) ) )
+##                totalData = 0
+##                data = fhandle.readinto(self.__byteBuffer)
+##                while data != 0:
+##                    self.__hashdata.update(self.__byteBuffer[:data])
+##                    data = fhandle.readinto(self.__byteBuffer)
+##
+##        except KeyboardInterrupt:
+##            sys.exit()
 
-                data = fhandle.readinto(byteBuffer)
-                while data != 0:
-                    self.__hashdata.update(byteBuffer)
-                    data = fhandle.readinto(byteBuffer)
+        localLogging.info('\tcompute opening %s' % ( localStr(self.__fname) ))
+        with io.open(self.__fname, 'rb') as fhandle:
+            if NO_HUMANFRIENDLY is None:
+                localLogging.debug('\t\treading incrementally... (increments of: %s bytes)' % ( localStr(self.__bufsize) ) )
+            elif NO_HUMANFRIENDLY is not None:
+                localLogging.debug('\t\treading incrementally... (increments of: %s)' % ( humanfriendly.format_size(self.__bufsize) ) )
+            totalData = 0
+            data = fhandle.readinto(self.__byteBuffer)
+            while data != 0:
+                self.__hashdata.update(self.__byteBuffer[:data])
+                data = fhandle.readinto(self.__byteBuffer)
 
-        except IOError:
-            logging.warning("whoops! IOError in Worker.compute")
-        except KeyboardInterrupt:
-            sys.exit()
 
-        logging.debug('\t\t\t\tfile: "%s" : %s' % (str(self.__fname), str(self.__hashdata.hexdigest())) )
+        localLogging.debug('\t\t\t\tfile: "%s" : %s' % (localStr(self.__fname), localStr(self.__hashdata.hexdigest())) )
         return (self.__fname, self.__hashdata.hexdigest())
 
 
@@ -388,7 +399,8 @@ def main_method(heuristic, algorithm, args):
                 try:
                     for aFileNameList in sortedSizes:
                         for thisHashFileName in aFileNameList[1]:
-                            result = aWorker.compute(thisHashFileName, incremental = True)
+                            #result = aWorker.compute(thisHashFileName, incremental = True)
+                            result = aWorker.computeByteArray(thisHashFileName, incremental = True)
                             fileHashes.append(result)
 
                 except KeyboardInterrupt:
@@ -415,7 +427,7 @@ def main_method(heuristic, algorithm, args):
             print("%s of wasted space!" % humanfriendly.format_size(wastedSpace))
 
 def _profile(continuation):
-    prof_file = 'iotop.prof'
+    prof_file = 'duplicateFileFinder.prof'
     try:
         import cProfile
         import pstats
@@ -432,8 +444,10 @@ def _profile(continuation):
         stats = hotshot.stats.load(prof_file)
     stats.strip_dirs()
     stats.sort_stats('time', 'calls')
-    stats.print_stats(50)
-    stats.print_callees(50)
+    stats.print_title()
+    stats.print_stats(1000)
+    #stats.print_callees(1000)
+    stats.print_callers(1000)
     os.remove(prof_file)
 
 
