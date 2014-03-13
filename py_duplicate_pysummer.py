@@ -227,6 +227,10 @@ def removeDuplicatesForHeuristic(sortedSizes):
                 logging.debug('\t\tremoving sub-two element (%s[1]) list...\n' % (str(size[1])))
                 sortedSizes.remove(size)
                 deDupeNeeded = True
+            #else:
+                #logging.debug('\t\tNOT removing element of size %i for fileSize %s' % (len(size[1]), str(size[0])))
+                #if len(size[1]) == 2:
+                    #logging.debug('\t\t\telement: %s' % ( str(size[1]) ) )
         except TypeError:
             logging.error('\t\titem "%s" is neither a sequence nor a mapping!' % (str(size)))
             sys.exit()
@@ -342,7 +346,7 @@ def main():
                     reportData.append(str(('file of size: %s\n\t%s\n' % (str(key), str(fileSizeDict[key])) )))
                 except UnicodeEncodeError:
                     logging.warning('Evil file path %s caused UnicodeEncodeError!' % ( str([ord(aChar) for aChar in str(fileSizeDict[key])]) ) )
-                    fileSizeDict[key] = ''
+                    fileSizeDict[key] = []
                 
             sortedSizes = []
             #sortedFileSizes = sorted(fileSizeDict, key=fileSizeDict.__getitem__)
@@ -360,8 +364,10 @@ def main():
             print('Heuristically identified %i possible duplicate files!' % ( sum([ len(size[1]) for size in sortedSizes ]) ) )
             multi_input('enter to continue....')
             for size in sortedSizes:
-                print(size)
-
+                try:
+                    print(size)
+                except UnicodeEncodeError:
+                    pass
             #printListOfDuplicateFiles(sortedSizes)
 #            raw_input('enter to continue')
 
@@ -372,16 +378,16 @@ def main():
             logging.debug('Starting computation!')
             if heuristic is None:
                 try:
-                    thisHashFileName = job_q.get()
-                    while thisHashFileName:
-                        result = aWorker.compute(thisHashFileName, incremental = True)
-                        out_q.put(result)
-                        thisHashFileName = job_q.get()
-                    out_q.put(False)
-                    nextHash = out_q.get()
-                    while nextHash:
-                        fileHashes.append(nextHash)
+                    for sortedSizeAndPaths in sortedSizes:
+                        listPaths = sortedSizeAndPaths[1]
+                        for aPath in listPaths:
+                            result = aWorker.compute(aPath, incremental = True)
+                            out_q.put(result)
+                        out_q.put(False)
                         nextHash = out_q.get()
+                        while nextHash:
+                            fileHashes.append(nextHash)
+                            nextHash = out_q.get()
 
                 except KeyboardInterrupt:
                     sys.exit()
