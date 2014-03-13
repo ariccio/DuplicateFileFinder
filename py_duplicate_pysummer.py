@@ -196,14 +196,14 @@ def printDuplicateFilesAndReturnWastedSpace(knownFiles):
 
             if fileSizeInBytes > 0:
                 sizeOfKnownFiles[key] = fileSizeInBytes * len(knownFiles[key])
-                logging.debug("\n\t\t\t%s:"%key)
-
-                for aSingleFile in knownFiles[key]:
-
-                    if NO_HUMANFRIENDLY is None:
-                        logging.debug("\t\t\t%s bytes\t\t\t%s" % (fileSizeInBytes, aSingleFile))
-                    elif NO_HUMANFRIENDLY is not None:
-                        logging.debug("\t\t\t%s\t\t\t%s" % (humanfriendly.format_size(fileSizeInBytes), aSingleFile))
+##                logging.debug("\n\t\t\t%s:"%key)
+##
+##                for aSingleFile in knownFiles[key]:
+##
+##                    if NO_HUMANFRIENDLY is None:
+##                        logging.debug("\t\t\t%s bytes\t\t\t%s" % (fileSizeInBytes, aSingleFile))
+##                    elif NO_HUMANFRIENDLY is not None:
+##                        logging.debug("\t\t\t%s\t\t\t%s" % (humanfriendly.format_size(fileSizeInBytes), aSingleFile))
 
     sortedSizeOfKnownFiles = sorted(sizeOfKnownFiles, key=knownFiles.__getitem__)
     sortedListSize = []
@@ -363,11 +363,11 @@ def main():
                 (deDupeNeeded, sortedSizes) = removeDuplicatesForHeuristic(sortedSizes)
             print('Heuristically identified %i possible duplicate files!' % ( sum([ len(size[1]) for size in sortedSizes ]) ) )
             multi_input('enter to continue....')
-            for size in sortedSizes:
-                try:
-                    print(size)
-                except UnicodeEncodeError:
-                    pass
+            #for size in sortedSizes:
+            #    try:
+            #        print(size)
+            #    except UnicodeEncodeError:
+            #       pass
             #printListOfDuplicateFiles(sortedSizes)
 #            raw_input('enter to continue')
 
