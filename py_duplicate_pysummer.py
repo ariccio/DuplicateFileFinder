@@ -26,7 +26,7 @@ try:
 except ImportError:
     NO_HUMANFRIENDLY = None
 # TODO : replace optparse with argparse : will brake compatibility with Python < 2.7
-from optparse import OptionParser
+from optparse import OptionParser, SUPPRESS_HELP
 
 version = '1.0'
 
@@ -60,7 +60,7 @@ class Worker():
         except KeyboardInterrupt:
             sys.exit()
         try:
-            logging.debug('\tcompute opening %s' % ( str(self.__fname) ))
+            logging.info('\tcompute opening %s' % ( str(self.__fname) ))
             with open(self.__fname, self.__rmode) as fhandle:
                 if incremental is not None:
                     if NO_HUMANFRIENDLY is None:
@@ -140,13 +140,22 @@ def printListOfDuplicateFiles(listOfDuplicateFiles):
         item[0] = the SIZE of a file
         item[1] = a list of fileNAMES with that size
     '''
-    if NO_HUMANFRIENDLY is not None:
+    if NO_HUMANFRIENDLY is None:
+        for item in listOfDuplicateFiles:
+            print("\n%s:" % (str(item[0])))
+            for aFileName in item[1]:
+                try:
+                    print("\t%s" % (str(aFileName)))
+                except UnicodeEncodeError:
+                    logging.warning("\t\t\tfilename is evil! filename: ", aFileName)
+
+    elif NO_HUMANFRIENDLY is not None:
         for item in listOfDuplicateFiles:
             try:
                 item[0] = humanfriendly.format_size(item[0])
-                print('\t"%s"' % (str(item[0])))
+                print('\n%s:' % (str(item[0])))
                 for aFileName in item[1]:
-                    print('\t"%s"' % (str(aFileName)))
+                    print('\t%s' % (str(aFileName)))
             except ValueError:
                 logging.warning('\t\tError formatting item for human friendly printing!')
                 logging.debug('\t\t\tItem: "%s" at fault!' % ( str(item) ))
@@ -157,13 +166,6 @@ def printListOfDuplicateFiles(listOfDuplicateFiles):
             except UnicodeEncodeError:
                 logging.warning('\t\tfilename is evil! filename: "%s"' % ( str(aFileName)) )
 
-    for item in listOfDuplicateFiles:
-        print("\n%s:" % (str(item[0])))
-        for aFileName in item[1]:
-            try:
-                print("\t%s" % (str(aFileName)))
-            except UnicodeEncodeError:
-                logging.warning("\t\t\tfilename is evil! filename: ", aFileName)
 
 
 def printDuplicateFilesAndReturnWastedSpace(knownFiles):
@@ -269,6 +271,8 @@ def walkDirAndReturnListOfFiles(directoryToWalk):
     return ListOfFiles
 
 
+def main_method():
+    pass
 
 
 def main():
@@ -276,18 +280,34 @@ def main():
     parser = OptionParser(usage=usage)
     parser.add_option("--hash", dest="hashname", default="auto", help="select hash algorithm")
     parser.add_option("--heuristic", dest="heuristic", default=None, help="Attempt to hash ONLY files that may be duplicates")
-    (options, args) = parser.parse_args()
+    parser.add_option("--debug", dest="isDebugMode", default=None, help="For the curious ;)")
+    parser.add_option('--profile', action='store_true', dest='profile', default=False, help=SUPPRESS_HELP)
 
-    logging.basicConfig(level=logging.DEBUG)
-    #logging.basicConfig(level=logging.WARNING)
+    (options, args) = parser.parse_args()
+    
+    if options.isDebugMode is not None:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.WARNING)
+
+    if options.hashname == "auto":
+        options.hashname = "sha1"
+        logging.warning("'auto' as hash selected, so defaulting to 'sha1'\n")
+
+    if options.profile:
+        def safe_main():
+            try:
+                main_method()
+            except:
+                pass
+            
+    heuristic = options.heuristic
 
     if args:
         arg0 = args[0]
-        heuristic = options.heuristic
+        fileSizeList = []
+        fileSizeDict = {}        
         knownFiles = {}
-        if options.hashname == "auto":
-            options.hashname = "sha1"
-            logging.warning("'auto' as hash selected, so defaulting to 'sha1'\n")
 
         if os.path.isfile(arg0):
             w = Worker(options.hashname)
@@ -298,40 +318,7 @@ def main():
         elif os.path.isdir(arg0):
             fileList = walkDirAndReturnListOfFiles(arg0)
             logging.debug('Found %i files!' % ( len(fileList) ))
-##            job_q = walkDirAndReturnQueueOfFiles(arg0)
-##            logging.debug('Found %s files!' % ( str(job_q.qsize())))
-##            job_q.put(False)
-##
-##            fileList = []
-##
-##            secondaryQueue = queue.Queue()
-##            ternaryQueue   = queue.Queue()
-##
-##            temp = job_q.get()
-##            while temp:
-##                logging.debug('Got %s from job_q!' % ( str(temp) ) )
-##                fileList.append(temp)
-##                secondaryQueue.put(temp)
-##                ternaryQueue.put(temp)
-##                temp = job_q.get()
-##            secondaryQueue.put(False)
-##            ternaryQueue.put(False)
-##
-##            logging.debug('ternaryQueue size: %s' % ( str(ternaryQueue.qsize()) ) )
-##            temp = ternaryQueue.get()
-##            while temp:
-##                job_q.put(temp)
-##                temp = ternaryQueue.get()
-##
-##            
-##            logging.debug('secondaryQueue size: %s' % ( str(secondaryQueue.qsize()) ) )
-##            multi_input('enter to continue')
-##            temp = secondaryQueue.get()
-##            while temp:
-##                fileList.append(temp)
-##                temp = secondaryQueue.get()
-            fileSizeList = []
-            fileSizeDict = {}
+
             for aFile in fileList:
                 fileSize = getFileSizeFromOS(aFile)
                 if fileSizeDict.get(fileSize) is None:
@@ -362,14 +349,6 @@ def main():
             while deDupeNeeded:
                 (deDupeNeeded, sortedSizes) = removeDuplicatesForHeuristic(sortedSizes)
             print('Heuristically identified %i possible duplicate files!' % ( sum([ len(size[1]) for size in sortedSizes ]) ) )
-            multi_input('enter to continue....')
-            #for size in sortedSizes:
-            #    try:
-            #        print(size)
-            #    except UnicodeEncodeError:
-            #       pass
-            #printListOfDuplicateFiles(sortedSizes)
-#            raw_input('enter to continue')
 
             fileHashes = []
             out_q = queue.Queue()
