@@ -87,14 +87,15 @@ class Worker():
         return (self.__fname, self.__hashdata.hexdigest())
 
     def computeByteArray(self, fname, incremental=None):
-        self.__fname = fname
-        self.__byteBuffer   = bytearray(self.__bufsize)
-        self.__hashdata = hashlib.new('sha1')
+        #TODO: eliminate function call overhead associated with calling computeByteArray for EVERY goddamned file!
+        localFName = fname
+        localByteBuffer   = bytearray(self.__bufsize)
+        localHashdata = hashlib.new('sha1')
         #incremental = True
         
         #pre-load globals!
-        localLogging = logging
-        localStr     = str
+##        localLogging = logging
+##        localStr     = str
 ##        try:
 ##            localLogging.info('\tcompute opening %s' % ( localStr(self.__fname) ))
 ##            with io.open(self.__fname, 'rb') as fhandle:
@@ -111,21 +112,21 @@ class Worker():
 ##        except KeyboardInterrupt:
 ##            sys.exit()
 
-        localLogging.info('\tcompute opening %s' % ( localStr(self.__fname) ))
-        with io.open(self.__fname, 'rb') as fhandle:
-            if NO_HUMANFRIENDLY is None:
-                localLogging.debug('\t\treading incrementally... (increments of: %s bytes)' % ( localStr(self.__bufsize) ) )
-            elif NO_HUMANFRIENDLY is not None:
-                localLogging.debug('\t\treading incrementally... (increments of: %s)' % ( humanfriendly.format_size(self.__bufsize) ) )
-            totalData = 0
-            data = fhandle.readinto(self.__byteBuffer)
+##        localLogging.info('\tcompute opening %s' % ( localStr(self.__fname) ))
+        with io.open(localFName, 'rb') as fhandle:
+##            if NO_HUMANFRIENDLY is None:
+##                localLogging.debug('\t\treading incrementally... (increments of: %s bytes)' % ( localStr(self.__bufsize) ) )
+##            elif NO_HUMANFRIENDLY is not None:
+##                localLogging.debug('\t\treading incrementally... (increments of: %s)' % ( humanfriendly.format_size(self.__bufsize) ) )
+##            totalData = 0
+            data = fhandle.readinto(localByteBuffer)
             while data != 0:
-                self.__hashdata.update(self.__byteBuffer[:data])
-                data = fhandle.readinto(self.__byteBuffer)
+                localHashdata.update(localByteBuffer[:data])
+                data = fhandle.readinto(localByteBuffer)
 
 
-        localLogging.debug('\t\t\t\tfile: "%s" : %s' % (localStr(self.__fname), localStr(self.__hashdata.hexdigest())) )
-        return (self.__fname, self.__hashdata.hexdigest())
+##        localLogging.debug('\t\t\t\tfile: "%s" : %s' % (localStr(self.__fname), localStr(self.__hashdata.hexdigest())) )
+        return (localFName, localHashdata.hexdigest())
 
 
 
