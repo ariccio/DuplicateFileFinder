@@ -85,6 +85,39 @@ class Worker():
         logging.debug('\t\t\t\tfile: "%s" : %s' % (str(self.__fname), str(self.__hashdata.hexdigest())) )
         return (self.__fname, self.__hashdata.hexdigest())
 
+    def computeByteArray(self, fname, incremental=None):
+        self.__fname = fname
+        byteBuffer   = bytearray(self.__bufsize)
+        try:
+            self.__hashdata = hashlib.new(self.__hashname)
+        except ValueError:
+            raise NotImplementedError("# %s : hash algorithm [ %s ] not implemented" % (self.__name, self.__hashname))
+        #incremental = True
+        except KeyboardInterrupt:
+            sys.exit()
+        try:
+            logging.info('\tcompute opening %s' % ( str(self.__fname) ))
+            with io.open(self.__fname, 'rb') as fhandle:
+                if NO_HUMANFRIENDLY is None:
+                    logging.debug('\t\treading incrementally... (increments of: %s bytes)' % ( str(self.__bufsize) ) )
+                elif NO_HUMANFRIENDLY is not None:
+                    logging.debug('\t\treading incrementally... (increments of: %s)' % ( humanfriendly.format_size(self.__bufsize) ) )
+
+                data = fhandle.readinto(byteBuffer)
+                while data != 0:
+                    self.__hashdata.update(byteBuffer)
+                    data = fhandle.readinto(byteBuffer)
+
+        except IOError:
+            logging.warning("whoops! IOError in Worker.compute")
+        except KeyboardInterrupt:
+            sys.exit()
+
+        logging.debug('\t\t\t\tfile: "%s" : %s' % (str(self.__fname), str(self.__hashdata.hexdigest())) )
+        return (self.__fname, self.__hashdata.hexdigest())
+
+
+
 def getFileSizeFromOS(theFileInQuestion):
     '''
     NEW (inspired by "C:\\Python27\\Lib\\genericpath.py".getsize(filename)) method:
@@ -271,38 +304,7 @@ def walkDirAndReturnListOfFiles(directoryToWalk):
     return ListOfFiles
 
 
-def main_method():
-    pass
-
-
-def main():
-    usage = "usage: %prog [options] arg"
-    parser = OptionParser(usage=usage)
-    parser.add_option("--hash", dest="hashname", default="auto", help="select hash algorithm")
-    parser.add_option("--heuristic", dest="heuristic", default=None, help="Attempt to hash ONLY files that may be duplicates")
-    parser.add_option("--debug", dest="isDebugMode", default=None, help="For the curious ;)")
-    parser.add_option('--profile', action='store_true', dest='profile', default=False, help=SUPPRESS_HELP)
-
-    (options, args) = parser.parse_args()
-    
-    if options.isDebugMode is not None:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.WARNING)
-
-    if options.hashname == "auto":
-        options.hashname = "sha1"
-        logging.warning("'auto' as hash selected, so defaulting to 'sha1'\n")
-
-    if options.profile:
-        def safe_main():
-            try:
-                main_method()
-            except:
-                pass
-            
-    heuristic = options.heuristic
-
+def main_method(heuristic, algorithm, args):
     if args:
         arg0 = args[0]
         fileSizeList = []
@@ -310,7 +312,7 @@ def main():
         knownFiles = {}
 
         if os.path.isfile(arg0):
-            w = Worker(options.hashname)
+            w = Worker(algorithm)
             hw = w.compute(arg0)
             print("%s *%s" % (hw, arg0))
             knownFiles[hw] = arg0
@@ -353,7 +355,7 @@ def main():
             fileHashes = []
             out_q = queue.Queue()
 
-            aWorker = Worker(options.hashname)
+            aWorker = Worker(algorithm)
             logging.debug('Starting computation!')
             if heuristic is None:
                 try:
@@ -412,7 +414,61 @@ def main():
         elif NO_HUMANFRIENDLY is not None:
             print("%s of wasted space!" % humanfriendly.format_size(wastedSpace))
 
+def _profile(continuation):
+    prof_file = 'iotop.prof'
+    try:
+        import cProfile
+        import pstats
+        print('Profiling using cProfile')
+        cProfile.runctx('continuation()', globals(), locals(), prof_file)
+        stats = pstats.Stats(prof_file)
+    except ImportError:
+        import hotshot
+        import hotshot.stats
+        prof = hotshot.Profile(prof_file, lineevents=1)
+        print('Profiling using hotshot')
+        prof.runcall(continuation)
+        prof.close()
+        stats = hotshot.stats.load(prof_file)
+    stats.strip_dirs()
+    stats.sort_stats('time', 'calls')
+    stats.print_stats(50)
+    stats.print_callees(50)
+    os.remove(prof_file)
 
+
+
+def main():
+    usage = "usage: %prog [options] arg"
+    parser = OptionParser(usage=usage)
+    parser.add_option("--hash", dest="hashname", default="auto", help="select hash algorithm")
+    parser.add_option("--heuristic", dest="heuristic", default=None, help="Attempt to hash ONLY files that may be duplicates")
+    parser.add_option("--debug", dest="isDebugMode", default=None, help="For the curious ;)")
+    parser.add_option('--profile', action='store_true', dest='profile', default=False, help="for the hackers")
+
+    (options, args) = parser.parse_args()
+    
+    if options.isDebugMode is not None:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.WARNING)
+
+    if options.hashname == "auto":
+        options.hashname = "sha1"
+        logging.warning("'auto' as hash selected, so defaulting to 'sha1'\n")
+
+    heuristic = options.heuristic
+    algorithm = options.hashname
+
+    if options.profile:
+        def safe_main():
+            try:
+                main_method(heuristic, algorithm,args)
+            except:
+                pass
+        _profile(safe_main)
+    else:
+        main_method(heuristic, algorithm,args)
 
 if __name__ == "__main__":
     main()
