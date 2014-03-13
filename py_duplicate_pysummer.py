@@ -54,7 +54,6 @@ class Worker():
         except KeyboardInterrupt:
             sys.exit()
         try:
-
             logging.debug('\tcompute opening %s' % ( str(self.__fname) ))
             with open(self.__fname, self.__rmode) as fhandle:
                 if incremental is not None:
@@ -71,8 +70,9 @@ class Worker():
                     logging.debug('\t\treading in one huge chunk...')
                     data = fhandle.read()#this is ugly and will break for large files
                     self.__hashdata.update(data)
+
         except IOError:
-            logging.debug("whoops! IOError in Worker.compute")
+            logging.warning("whoops! IOError in Worker.compute")
         
         except KeyboardInterrupt:
             sys.exit()
@@ -84,8 +84,19 @@ class Worker():
 
 def getFileSizeFromOS(theFileInQuestion):
     '''
-    finding the filesize is a bitch. A call to os.stat("pathToSomeFile") returns (on Windows):
+    NEW (inspired by "C:\Python27\Lib\genericpath.py".getsize(filename)) method:
+    --------------------------------------------------------------------------------------------
+    `os.stat(theFileInQuestion).st_size` returns some number followed by 'L' (<type 'long'>) in Python 2.x, some number without postfixed 'L' (<class 'int'>)
+    e.g:
+        os.stat("C:\\Users\\Alexander Riccio\\Documents\\GitHub\\DuplicateFileFinder\\README.md").st_size returns:
+            Python 3.x: '42'
+            Python 2.x: '42L'
+    
 
+    OLD ('backup') method:
+    --------------------------------------------------------------------------------------------
+    finding the filesize is a bitch. A call to os.stat("pathToSomeFile") returns (on Windows):
+        See: "C:\Python27\Lib\stat.py" for the code that's responsible for this behavior.
     nt.stat_result(st_mode=33206, st_ino=0L, st_dev=0, st_nlink=0, st_uid=0, st_gid=0, st_size=6253L, st_atime=1391494554L, st_mtime=1391507902L, st_ctime=1391494554L)
 
     Not exactly readable.
@@ -106,52 +117,77 @@ def getFileSizeFromOS(theFileInQuestion):
     Now I intify our nicely trimmed integer-only str, and we\'re done!
 
     ...mostly - now it's time to display this information in a usuable mannner
+    -------------------------------------------------------------------------------------------
+    >>> (fd, path) = tempfile.mkstemp(); os.write(fd, 'aaaa'); os.close(fd); print os.stat(path).st_size; os.remove(path)
+    4
+    4
 
     '''
     try:
-        aFileStats = str(os.stat(theFileInQuestion))
-        listAFileStats = aFileStats[aFileStats.index('(')+1 : aFileStats.index(')')].split(', ')
-
-        for item in listAFileStats:
-            listAFileStats[listAFileStats.index(item)] = item.split('=')
-
-        for item in listAFileStats:
-            if item[0] == 'st_size':
-                sizeIndex = listAFileStats.index(item)
-        fileSizeStr = listAFileStats[sizeIndex][1]
-        if fileSizeStr[-1] == 'L':
-            fileSizeInBytes = fileSizeStr[:-1]
-        else:
-            fileSizeInBytes = fileSizeStr
-        try:
-            fileSizeInBytes = int(fileSizeInBytes)
-        except ValueError:#occurs when st_size == ''
-            logging.debug("Whoops! ValueError in getFileSizeFromOS! This usually occurs when st_size == \'\'")
-            logging.debug("\taFileStats       = %s" % aFileStats)
-            logging.debug("\tlistAFileStats   = %s" % (str(listAFileStats)))
-            logging.debug("\tsizeIndex        = %s" % (str(sizeIndex)))
-            logging.debug("\tfileSizeStr      = %s" % fileSizeStr)
-            logging.debug("\tfileSizeStr[:-1] = %s" % (str(fileSizeStr[:-1])))
-            logging.debug("\tfileSizeInBytes:")
-            logging.debug(fileSizeInBytes)
-            fileSizeInBytes = 0
+        fileSizeInBytes = int(os.stat(theFileInQuestion).st_size)
+    
+##    try:
+##        aFileStats = str(os.stat(theFileInQuestion))
+##        listAFileStats = aFileStats[aFileStats.index('(')+1 : aFileStats.index(')')].split(', ')
+##
+##        for item in listAFileStats:
+##            listAFileStats[listAFileStats.index(item)] = item.split('=')
+##
+##        for item in listAFileStats:
+##            if item[0] == 'st_size':
+##                sizeIndex = listAFileStats.index(item)
+##        fileSizeStr = listAFileStats[sizeIndex][1]
+##        if fileSizeStr[-1] == 'L':
+##            fileSizeInBytes = fileSizeStr[:-1]
+##        else:
+##            fileSizeInBytes = fileSizeStr
+##        try:
+##            fileSizeInBytes = int(fileSizeInBytes)
+##        except ValueError:#occurs when st_size == ''
+##            logging.warning("Whoops! ValueError in getFileSizeFromOS! This usually occurs when st_size == \'\'")
+##            logging.warning("\taFileStats       = %s" % aFileStats)
+##            logging.warning("\tlistAFileStats   = %s" % (str(listAFileStats)))
+##            logging.warning("\tsizeIndex        = %s" % (str(sizeIndex)))
+##            logging.warning("\tfileSizeStr      = %s" % fileSizeStr)
+##            logging.warning("\tfileSizeStr[:-1] = %s" % (str(fileSizeStr[:-1])))
+##            logging.warning("\tfileSizeInBytes:")
+##            logging.warning(fileSizeInBytes)
+##            fileSizeInBytes = 0
     except WindowsError:
-        logging.debug("Windows error in printDuplicateFilesAndReturnWastedSpace! May god have mercy on your soul.")
-        pass
+        logging.warning('Windows error while getting size of "%s" in printDuplicateFilesAndReturnWastedSpace!\n\n\tMay god have mercy on your soul.\n\n' % (str(theFileInQuestion)))
+        fileSizeInBytes = 0
     return fileSizeInBytes
 
 def printListOfDuplicateFiles(listOfDuplicateFiles):
+    '''
+    expects a list:
+        item[0] = the SIZE of a file
+        item[1] = a list of fileNAMES with that size
+    '''
     if NO_HUMANFRIENDLY is not None:
         for item in listOfDuplicateFiles:
-            item[0] = humanfriendly.format_size(item[0])
-
+            try:
+                item[0] = humanfriendly.format_size(item[0])
+                print('\t"%s"' % (str(item[0])))
+                for aFileName in item[1]:
+                    print('\t"%s"' % (str(aFileName)))
+            except ValueError:
+                logging.warning('\t\tError formatting item for human friendly printing!')
+                logging.debug('\t\t\tItem: "%s" at fault!' % ( str(item) ))
+                for i in range(len(item)):
+                    indent = '\t' * (4 + i)
+                    logging.debug('%sitem[%i]: %s' % (indent, i, str(item[i])))
+                sys.exit()
+            except UnicodeEncodeError:
+                logging.warning('\t\tfilename is evil! filename: "%s"' % ( str(aFileName)) )
+                
     for item in listOfDuplicateFiles:
         print("\n%s:" % (str(item[0])))
         for aFileName in item[1]:
             try:
                 print("\t%s" % (str(aFileName)))    
             except UnicodeEncodeError:
-                logging.debug("\t\t\tfilename is evil! filename: ", aFileName)
+                logging.warning("\t\t\tfilename is evil! filename: ", aFileName)
 
 
 def printDuplicateFilesAndReturnWastedSpace(knownFiles):
@@ -206,6 +242,20 @@ def printDuplicateFilesAndReturnWastedSpace(knownFiles):
     return wastedSpace
 
 
+def removeDuplicatesForHeuristic(sortedSizes):
+    deDupeNeeded = False
+    for size in sortedSizes:
+        #size should be format: [36, ['C:\\Users\\Alexander Riccio\\Documents\\t.txt']]
+        try:
+            if len(size[1]) < 2:
+                logging.debug('\t\tremoving sub-two element (%s[1]) list...\n' % (str(size[1])))
+                sortedSizes.remove(size)
+                deDupeNeeded = True
+        except TypeError:
+            logging.error('\t\titem "%s" is neither a sequence nor a mapping!' % (str(size)))
+            sys.exit()
+    return deDupeNeeded, sortedSizes
+
 def walkDirAndReturnQueueOfFiles(directoryToWalk):
     queueOfFiles = queue.Queue()
     logging.debug('Walking %s...' % ( str(directoryToWalk) ) )
@@ -217,7 +267,7 @@ def walkDirAndReturnQueueOfFiles(directoryToWalk):
         '''
         for fname in files:
             fullpath = os.path.abspath(os.path.join(root, fname))
-            logging.debug("\tPutting %s in queueOfPathsToFilesToBeHashed"% (str(fullpath))) 
+            #logging.debug("\tPutting %s in queueOfPathsToFilesToBeHashed"% (str(fullpath))) 
             queueOfFiles.put(fullpath)
         queueOfFiles.put(False)
     return queueOfFiles
@@ -226,7 +276,7 @@ def main():
     usage = "usage: %prog [options] arg"
     parser = OptionParser(usage=usage)
     parser.add_option("--hash", dest="hashname", default="auto", help="select hash algorithm")
-
+    parser.add_option("--heuristic", dest="heuristic", default=None, help="Attempt to hash ONLY files that may be duplicates")
     (options, args) = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG)
@@ -234,6 +284,7 @@ def main():
 
     if args:
         arg0 = args[0]
+        heuristic = options.heuristic
         knownFiles = {}
         if options.hashname == "auto":
             options.hashname = "sha1"
@@ -248,6 +299,7 @@ def main():
         elif os.path.isdir(arg0):
 
             job_q = walkDirAndReturnQueueOfFiles(arg0)                
+            logging.debug('Found %s files!' % ( str(job_q.qsize())))
             job_q.put(False)
 
 
@@ -270,6 +322,7 @@ def main():
             while temp:
                 fileList.append(temp)
                 temp = secondaryQueue.get()
+
             fileSizeDict = {}
             for aFile in fileList:
                 fileSize = getFileSizeFromOS(aFile)
@@ -280,44 +333,79 @@ def main():
 
             for key in fileSizeDict:
                 print('file of size: %s\n\t%s' % (str(key), str(fileSizeDict[key])) )
-            raw_input('enter to continue')
 
+            sortedSizes = []
+            sortedFileSizes = sorted(fileSizeDict, key=fileSizeDict.__getitem__)
+            for sortedSize in sortedFileSizes:
+                sortedSizes.append([sortedSize, fileSizeDict.get(sortedSize)])
+            #print(sortedSizes)
+            sortedSizes.sort()
+##            for size in sortedSizes:
+##                print(size)
+            (deDupeNeeded, sortedSizes)  = removeDuplicatesForHeuristic(sortedSizes)
+            while deDupeNeeded:
+                (deDupeNeeded, sortedSizes) = removeDuplicatesForHeuristic(sortedSizes)
+            print('Heuristically identified %i possible duplicate files!' % (sum([len(size[1]) for size in sortedSizes])))
+            for size in sortedSizes:
+                print(size)
 
-            
+            #printListOfDuplicateFiles(sortedSizes)
+#            raw_input('enter to continue')
+
             fileHashes = []
             out_q = queue.Queue()
             
             aWorker = Worker(options.hashname)
             logging.debug('Starting computation!')
-            try:
-                thisHashFileName = job_q.get()
-                while thisHashFileName:
-                    result = aWorker.compute(thisHashFileName, incremental = True)
-                    out_q.put(result)
+            if heuristic is None:
+                try:
                     thisHashFileName = job_q.get()
-                out_q.put(False)                
-                #fileHashes = []
-
-                nextHash = out_q.get()
-                while(nextHash):
-                    fileHashes.append(nextHash)
+                    while thisHashFileName:
+                        result = aWorker.compute(thisHashFileName, incremental = True)
+                        out_q.put(result)
+                        thisHashFileName = job_q.get()
+                    out_q.put(False)
                     nextHash = out_q.get()
+                    while(nextHash):
+                        fileHashes.append(nextHash)
+                        nextHash = out_q.get()
 
-            except KeyboardInterrupt:
-                sys.exit()
-            
-            for (fileFullPath, fileHashHex) in fileHashes:
-                try:                    
-                    it = knownFiles.get(fileHashHex)
-                    if it is None:
-                        knownFiles[fileHashHex] = [fileFullPath]
-                    else:
-                        knownFiles[fileHashHex].append(fileFullPath)
-                    #(fileFullPath, fileHashHex)  = queueOfFileHashes.get()
                 except KeyboardInterrupt:
                     sys.exit()
+                
+                for (fileFullPath, fileHashHex) in fileHashes:
+                    try:                    
+                        it = knownFiles.get(fileHashHex)
+                        if it is None:
+                            knownFiles[fileHashHex] = [fileFullPath]
+                        else:
+                            knownFiles[fileHashHex].append(fileFullPath)
+                        #(fileFullPath, fileHashHex)  = queueOfFileHashes.get()
+                    except KeyboardInterrupt:
+                        sys.exit()
+                        
+            elif heuristic is not None:
+                try:
+                    for aFileNameList in sortedSizes:
+                        for thisHashFileName in aFileNameList[1]:
+                            result = aWorker.compute(thisHashFileName, incremental = True)
+                            fileHashes.append(result)
+
+                except KeyboardInterrupt:
+                    sys.exit()
+                
+                for (fileFullPath, fileHashHex) in fileHashes:
+                    try:                    
+                        it = knownFiles.get(fileHashHex)
+                        if it is None:
+                            knownFiles[fileHashHex] = [fileFullPath]
+                        else:
+                            knownFiles[fileHashHex].append(fileFullPath)
+                        #(fileFullPath, fileHashHex)  = queueOfFileHashes.get()
+                    except KeyboardInterrupt:
+                        sys.exit()
         else:
-            raise IOError("Specified file or directory not found")
+            raise IOError("Specified file or directory not found!")
 
         wastedSpace= printDuplicateFilesAndReturnWastedSpace(knownFiles)
         print('\n')
