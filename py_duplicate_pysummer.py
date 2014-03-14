@@ -252,10 +252,10 @@ def printDuplicateFilesAndReturnWastedSpace(knownFiles):
         fileSizeInBytes =  getFileSizeFromOS(aFile)
 
         if len(knownFiles[key]) > 1:
-            wastedSpace += fileSizeInBytes * len(knownFiles[key])
+            wastedSpace += fileSizeInBytes * (len(knownFiles[key])-1)
 
             if fileSizeInBytes > 0:
-                sizeOfKnownFiles[key] = fileSizeInBytes * len(knownFiles[key])
+                sizeOfKnownFiles[key] = fileSizeInBytes * (len(knownFiles[key])-1)
                 logging.debug("\n\t\t\t%s:"%key)
                 
             if NO_HUMANFRIENDLY is None:
