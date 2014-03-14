@@ -77,9 +77,10 @@ class Worker():
                     logging.debug('\t\treading in one huge chunk...')
                     data = fhandle.read()#this is ugly and will break for large files
                     self.__hashdata.update(data)
-
+        except PermissionError:
+            logging.warning("\t\t\twhoops! PermissionError in Worker.compute, is file a lock?")
         except IOError:
-            logging.warning("whoops! IOError in Worker.compute")
+            logging.warning("\t\t\twhoops! IOError in Worker.compute")
         except KeyboardInterrupt:
             sys.exit()
 
@@ -113,18 +114,19 @@ class Worker():
 ##            sys.exit()
 
 ##        localLogging.info('\tcompute opening %s' % ( localStr(self.__fname) ))
-        with io.open(localFName, 'rb') as fhandle:
-##            if NO_HUMANFRIENDLY is None:
-##                localLogging.debug('\t\treading incrementally... (increments of: %s bytes)' % ( localStr(self.__bufsize) ) )
-##            elif NO_HUMANFRIENDLY is not None:
-##                localLogging.debug('\t\treading incrementally... (increments of: %s)' % ( humanfriendly.format_size(self.__bufsize) ) )
-##            totalData = 0
-            data = fhandle.readinto(localByteBuffer)
-            while data != 0:
-                localHashdata.update(localByteBuffer[:data])
+        try:
+            with io.open(localFName, 'rb') as fhandle:
+    ##            if NO_HUMANFRIENDLY is None:
+    ##                localLogging.debug('\t\treading incrementally... (increments of: %s bytes)' % ( localStr(self.__bufsize) ) )
+    ##            elif NO_HUMANFRIENDLY is not None:
+    ##                localLogging.debug('\t\treading incrementally... (increments of: %s)' % ( humanfriendly.format_size(self.__bufsize) ) )
+    ##            totalData = 0
                 data = fhandle.readinto(localByteBuffer)
-
-
+                while data != 0:
+                    localHashdata.update(localByteBuffer[:data])
+                    data = fhandle.readinto(localByteBuffer)
+        except PermissionError:
+            logging.warning("PermissionError while opening %s" % (str(localFName)))
 ##        localLogging.debug('\t\t\t\tfile: "%s" : %s' % (localStr(self.__fname), localStr(self.__hashdata.hexdigest())) )
         return (localFName, localHashdata.hexdigest())
 
@@ -174,9 +176,20 @@ def getFileSizeFromOS(theFileInQuestion):
     try:
         fileSizeInBytes = int(os.stat(theFileInQuestion).st_size)
 
-    except WindowsError:
-        logging.warning('Windows error while getting size of "%s" in printDuplicateFilesAndReturnWastedSpace!\n\n\tMay god have mercy on your soul.\n\n' % (str(theFileInQuestion)))
-        fileSizeInBytes = 0
+    except WindowsError as winErr:
+        #logging.warning('Windows error %s while getting size of "%s" in printDuplicateFilesAndReturnWastedSpace!\n\tMay god have mercy on your soul.\n\n' % ( str(winErr.errno), str(theFileInQuestion)))
+        if winErr.errno == 1920:
+            if os.path.islink(theFileInQuestion):
+                fileSizeInBytes = os.path.getSize(theFileInQuestion)
+            else:
+                fileSizeInBytes = 0
+        elif winErr.errno == 2:
+            logging.warning('Windows could not find %s, and thereby failed to find the size of said file.' % (str(theFileInQuestion)))
+            fileSizeInBytes = 0
+        else:
+            logging.warning('Windows error %s while getting size of "%s"!\n\tMay god have mercy on your soul.\n\n' % ( str(winErr.errno), str(theFileInQuestion)))
+            fileSizeInBytes = 0
+        #fileSizeInBytes = 0
     return fileSizeInBytes
 
 def printListOfDuplicateFiles(listOfDuplicateFiles):
@@ -243,14 +256,15 @@ def printDuplicateFilesAndReturnWastedSpace(knownFiles):
 
             if fileSizeInBytes > 0:
                 sizeOfKnownFiles[key] = fileSizeInBytes * len(knownFiles[key])
-##                logging.debug("\n\t\t\t%s:"%key)
-##
-##                for aSingleFile in knownFiles[key]:
-##
-##                    if NO_HUMANFRIENDLY is None:
-##                        logging.debug("\t\t\t%s bytes\t\t\t%s" % (fileSizeInBytes, aSingleFile))
-##                    elif NO_HUMANFRIENDLY is not None:
-##                        logging.debug("\t\t\t%s\t\t\t%s" % (humanfriendly.format_size(fileSizeInBytes), aSingleFile))
+                logging.debug("\n\t\t\t%s:"%key)
+                
+            if NO_HUMANFRIENDLY is None:
+                for aSingleFile in knownFiles[key]:
+                    logging.debug("\t\t\t%s bytes\t\t\t%s" % (fileSizeInBytes, aSingleFile))
+
+            elif NO_HUMANFRIENDLY is not None:
+                for aSingleFile in knownFiles[key]:
+                        logging.debug("\t\t\t%s\t\t\t%s" % (humanfriendly.format_size(fileSizeInBytes), aSingleFile))
 
     sortedSizeOfKnownFiles = sorted(sizeOfKnownFiles, key=knownFiles.__getitem__)
     sortedListSize = []
@@ -266,14 +280,14 @@ def printDuplicateFilesAndReturnWastedSpace(knownFiles):
 
 
 def removeDuplicatesForHeuristic(sortedSizes):
-    deDupeNeeded = False
+    #deDupeNeeded = False
     for size in sortedSizes:
         #size should be format: [36, ['C:\\Users\\Alexander Riccio\\Documents\\t.txt']]
         try:
             if len(size[1]) < 2:
                 logging.debug('\t\tremoving sub-two element (%s[1]) list...\n' % (str(size[1])))
                 sortedSizes.remove(size)
-                deDupeNeeded = True
+                #deDupeNeeded = True
             #else:
                 #logging.debug('\t\tNOT removing element of size %i for fileSize %s' % (len(size[1]), str(size[0])))
                 #if len(size[1]) == 2:
@@ -281,7 +295,8 @@ def removeDuplicatesForHeuristic(sortedSizes):
         except TypeError:
             logging.error('\t\titem "%s" is neither a sequence nor a mapping!' % (str(size)))
             sys.exit()
-    return deDupeNeeded, sortedSizes
+##    return deDupeNeeded, sortedSizes
+    return sortedSizes
 
 def walkDirAndReturnQueueOfFiles(directoryToWalk):
     queueOfFiles = queue.Queue()
@@ -324,30 +339,33 @@ def main_method(heuristic, algorithm, args):
         knownFiles = {}
 
         if os.path.isfile(arg0):
+            logging.debug('%s is a file!' % (str(arg0)))
             w = Worker(algorithm)
             hw = w.compute(arg0)
             print("%s *%s" % (hw, arg0))
             knownFiles[hw] = arg0
 
         elif os.path.isdir(arg0):
+            logging.debug('%s is a directory!!' % (str(arg0)))
             fileList = walkDirAndReturnListOfFiles(arg0)
             logging.debug('Found %i files!' % ( len(fileList) ))
-
+            logging.debug('Getting their sizes...')
             for aFile in fileList:
                 fileSize = getFileSizeFromOS(aFile)
-                if fileSizeDict.get(fileSize) is None:
-                    fileSizeDict[fileSize] = [aFile]
-                    fileSizeList.append(fileSize)
-                else:
-                    fileSizeDict[fileSize].append(aFile)
-
-            reportData = []
-            for key in fileSizeDict:
-                try:
-                    reportData.append(str(('file of size: %s\n\t%s\n' % (str(key), str(fileSizeDict[key])) )))
-                except UnicodeEncodeError:
-                    logging.warning('Evil file path %s caused UnicodeEncodeError!' % ( str([ord(aChar) for aChar in str(fileSizeDict[key])]) ) )
-                    fileSizeDict[key] = []
+                if fileSize > 0:
+                    if fileSizeDict.get(fileSize) is None:
+                        fileSizeDict[fileSize] = [aFile]
+                        fileSizeList.append(fileSize)
+                    else:
+                        fileSizeDict[fileSize].append(aFile)
+            logging.debug('Populated a dictionary of file sizes!')
+##            reportData = []
+##            for key in fileSizeDict:
+##                try:
+##                    reportData.append(str(('file of size: %s\n\t%s\n' % (str(key), str(fileSizeDict[key])) )))
+##                except UnicodeEncodeError:
+##                    logging.warning('Evil file path %s caused UnicodeEncodeError!' % ( str([ord(aChar) for aChar in str(fileSizeDict[key])]) ) )
+##                    fileSizeDict[key] = []
                 
             sortedSizes = []
             #sortedFileSizes = sorted(fileSizeDict, key=fileSizeDict.__getitem__)
@@ -359,9 +377,13 @@ def main_method(heuristic, algorithm, args):
             sortedSizes.sort()
 ##            for size in sortedSizes:
 ##                print(size)
-            (deDupeNeeded, sortedSizes)  = removeDuplicatesForHeuristic(sortedSizes)
-            while deDupeNeeded:
-                (deDupeNeeded, sortedSizes) = removeDuplicatesForHeuristic(sortedSizes)
+##            (deDupeNeeded, sortedSizes)  = removeDuplicatesForHeuristic(sortedSizes)
+##            while deDupeNeeded:
+##                (deDupeNeeded, sortedSizes) = removeDuplicatesForHeuristic(sortedSizes)
+            logging.debug('Sorting a list of %i file sizes!' % (len(sortedSizes)))
+            logging.debug('\tdeduplicating that list...')
+            sortedSizes  = removeDuplicatesForHeuristic(sortedSizes)
+            
             print('Heuristically identified %i possible duplicate files!' % ( sum([ len(size[1]) for size in sortedSizes ]) ) )
 
             fileHashes = []
@@ -370,6 +392,7 @@ def main_method(heuristic, algorithm, args):
             aWorker = Worker(algorithm)
             logging.debug('Starting computation!')
             if heuristic is None:
+                logging.debug('\tNOT computing with heuristic!')
                 try:
                     for sortedSizeAndPaths in sortedSizes:
                         listPaths = sortedSizeAndPaths[1]
@@ -381,7 +404,7 @@ def main_method(heuristic, algorithm, args):
                         while nextHash:
                             fileHashes.append(nextHash)
                             nextHash = out_q.get()
-
+                    logging.debug('\tComputation complete!')
                 except KeyboardInterrupt:
                     sys.exit()
 
@@ -397,13 +420,15 @@ def main_method(heuristic, algorithm, args):
                         sys.exit()
 
             elif heuristic is not None:
+                logging.debug('\tComputing with heuristic!')
                 try:
                     for aFileNameList in sortedSizes:
                         for thisHashFileName in aFileNameList[1]:
                             #result = aWorker.compute(thisHashFileName, incremental = True)
                             result = aWorker.computeByteArray(thisHashFileName, incremental = True)
+                            #maybe pass the size of file into computeByteArray, to then read that size file?
                             fileHashes.append(result)
-
+                    logging.debug('\tComputation complete!')
                 except KeyboardInterrupt:
                     sys.exit()
 
@@ -447,7 +472,7 @@ def _profile(continuation):
     stats.sort_stats('time', 'calls')
     stats.print_title()
     stats.print_stats(1000)
-    #stats.print_callees(1000)
+    stats.print_callees(1000)
     stats.print_callers(1000)
     os.remove(prof_file)
 
