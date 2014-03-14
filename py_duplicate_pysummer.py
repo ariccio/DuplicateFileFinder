@@ -87,10 +87,10 @@ class Worker():
         logging.debug('\t\t\t\tfile: "%s" : %s' % (str(self.__fname), str(self.__hashdata.hexdigest())) )
         return (self.__fname, self.__hashdata.hexdigest())
 
-    def computeByteArray(self, fname, incremental=None):
+    def computeByteArray(self, fname, fSize, incremental=None):
         #TODO: eliminate function call overhead associated with calling computeByteArray for EVERY goddamned file!
         localFName = fname
-        localByteBuffer   = bytearray(self.__bufsize)
+        localByteBuffer   = bytearray(fSize)
         localHashdata = hashlib.new('sha1')
         #incremental = True
         
@@ -425,7 +425,7 @@ def main_method(heuristic, algorithm, args):
                     for aFileNameList in sortedSizes:
                         for thisHashFileName in aFileNameList[1]:
                             #result = aWorker.compute(thisHashFileName, incremental = True)
-                            result = aWorker.computeByteArray(thisHashFileName, incremental = True)
+                            result = aWorker.computeByteArray(thisHashFileName, aFileNameList[0], incremental = True)
                             #maybe pass the size of file into computeByteArray, to then read that size file?
                             fileHashes.append(result)
                     logging.debug('\tComputation complete!')
@@ -485,7 +485,7 @@ def main():
     parser.add_option("--heuristic", dest="heuristic", default=None, help="Attempt to hash ONLY files that may be duplicates")
     parser.add_option("--debug", dest="isDebugMode", default=None, help="For the curious ;)")
     parser.add_option('--profile', action='store_true', dest='profile', default=False, help="for the hackers")
-
+    logging.warning("This is a VERY I/O heavy program. You may want to temporairily[TODO: sp?] exclude %s from anti-malware/anti-virus monitoring, especially for Microsoft Security Essentials/Windows Defender. That said, I've never seen Malwarebytes Anti-Malware have a performance impact; leave MBAM as it is." % (str(sys.executable)))
     (options, args) = parser.parse_args()
     
     if options.isDebugMode is not None:
