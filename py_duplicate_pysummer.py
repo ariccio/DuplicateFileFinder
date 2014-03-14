@@ -348,7 +348,8 @@ def main_method(heuristic, algorithm, args):
         elif os.path.isdir(arg0):
             logging.debug('%s is a directory!!' % (str(arg0)))
             fileList = walkDirAndReturnListOfFiles(arg0)
-            logging.debug('Found %i files!' % ( len(fileList) ))
+            lenAllFiles = len(fileList)
+            logging.debug('Found %i files!' % ( lenAllFiles ))
             logging.debug('Getting their sizes...')
             for aFile in fileList:
                 fileSize = getFileSizeFromOS(aFile)
@@ -380,11 +381,12 @@ def main_method(heuristic, algorithm, args):
 ##            (deDupeNeeded, sortedSizes)  = removeDuplicatesForHeuristic(sortedSizes)
 ##            while deDupeNeeded:
 ##                (deDupeNeeded, sortedSizes) = removeDuplicatesForHeuristic(sortedSizes)
-            logging.debug('Sorting a list of %i file sizes!' % (len(sortedSizes)))
+
+            logging.debug('Sorting a list of %i file sizes!' % (lenAllFiles))
             logging.debug('\tdeduplicating that list...')
             sortedSizes  = removeDuplicatesForHeuristic(sortedSizes)
             
-            print('Heuristically identified %i possible duplicate files!' % ( sum([ len(size[1]) for size in sortedSizes ]) ) )
+            print('Heuristically identified %i possible duplicate files, from a set of %i files!' % ( sum([ len(size[1]) for size in sortedSizes ]), lenAllFiles ) )
 
             fileHashes = []
             out_q = queue.Queue()
