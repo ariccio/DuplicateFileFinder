@@ -469,11 +469,20 @@ def _profile(continuation):
         prof.close()
         stats = hotshot.stats.load(prof_file)
     stats.strip_dirs()
-    stats.sort_stats('time', 'calls')
-    stats.print_title()
-    stats.print_stats(1000)
-    stats.print_callees(1000)
-    stats.print_callers(1000)
+##    stats.sort_stats('time', 'calls')
+##    stats.print_title()
+##    stats.print_stats(1000)
+##    stats.print_callees(1000)
+##    stats.print_callers(1000)
+    for a in ['calls', 'cumtime', 'cumulative', 'ncalls', 'time', 'tottime']:
+        try:
+            stats.sort_stats(a)
+##            stats.print_title()
+            stats.print_stats(10)
+            stats.print_callees(10)
+            stats.print_callers(10)
+        except KeyError:
+            pass
     os.remove(prof_file)
 
 
@@ -482,7 +491,7 @@ def main():
     usage = "usage: %prog [options] arg"
     parser = OptionParser(usage=usage)
     parser.add_option("--hash", dest="hashname", default="auto", help="select hash algorithm")
-    parser.add_option("--heuristic", dest="heuristic", default=None, help="Attempt to hash ONLY files that may be duplicates")
+    parser.add_option("--heuristic", dest="heuristic", default=True, help="Attempt to hash ONLY files that may be duplicates. ON by default")
     parser.add_option("--debug", dest="isDebugMode", default=None, help="For the curious ;)")
     parser.add_option('--profile', action='store_true', dest='profile', default=False, help="for the hackers")
     logging.warning("This is a VERY I/O heavy program. You may want to temporairily[TODO: sp?] exclude %s from anti-malware/anti-virus monitoring, especially for Microsoft Security Essentials/Windows Defender. That said, I've never seen Malwarebytes Anti-Malware have a performance impact; leave MBAM as it is." % (str(sys.executable)))
