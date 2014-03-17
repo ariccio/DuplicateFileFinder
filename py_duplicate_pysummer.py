@@ -1,10 +1,8 @@
+#!C:\Python33\Python.exe
 #-*- coding:utf-8 -*-
-
-## Author : JEANNENOT Stephane
-## Mail : stephane.jeannenot@gmail.com
-## Date : 13 May 2009 - First released on pypi (http://pypi.python.org/pypi)
-## Date : 01 Feb 2013 - Some improvements and released on Google Code
-## Date : 30 Jan 2014 - Release on Github
+'''
+Based DISTANTLY on code by JEANNENOT Stephane
+'''
 from __future__ import print_function
 import sys
 if sys.version_info[0] < 3:
@@ -23,11 +21,12 @@ import copy
 import io
 NO_HUMANFRIENDLY = True
 try:
-    import humanfriendly#pip install humansize
+    import humanfriendly
 except ImportError:
+    print('Install "human friendly" with "pip install humansize" for human-readable file sizes')
     NO_HUMANFRIENDLY = None
 # TODO : replace optparse with argparse : will brake compatibility with Python < 2.7
-from optparse import OptionParser, SUPPRESS_HELP
+from optparse import OptionParser
 
 version = '1.0'
 
