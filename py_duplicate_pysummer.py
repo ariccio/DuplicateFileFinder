@@ -12,12 +12,12 @@ if sys.version_info[0] < 3:
 if sys.version_info.major < 3:
     import Queue as queue
 elif sys.version_info.major > 2:
-    import queue    
-    
+    import queue
+
 import logging
 import os
 import hashlib
-import copy
+#import copy
 import io
 NO_HUMANFRIENDLY = True
 try:
@@ -26,12 +26,16 @@ except ImportError:
     print('Install "human friendly" with "pip install humansize" for human-readable file sizes')
     NO_HUMANFRIENDLY = None
 # TODO : replace optparse with argparse : will brake compatibility with Python < 2.7
+
 from optparse import OptionParser
 
-version = '1.0'
+#version = '1.0'
 
 
 def multi_input(prompt):
+    '''
+    eases python 2/3 support
+    '''
     if sys.version_info.major < 3:
         return raw_input(prompt)
     else:
@@ -39,8 +43,8 @@ def multi_input(prompt):
 
 class Worker():
     def __init__(self, hashname, rmode='rb', bufsize=16777216, name=None):#268435456 = 2^ 28#2097152
-        self.hash_known  = ['md5', 'sha1', 'sha512']
-        self.hash_length = {32:'md5', 40: "sha1", 128: "sha512"}
+        self.hash_known    = ['md5', 'sha1', 'sha512']
+        self.hash_length   = {32:'md5', 40: "sha1", 128: "sha512"}
         self.__bufsize     = bufsize
         self.__hashname    = hashname
         self.__hashdata    = None
@@ -51,22 +55,24 @@ class Worker():
             self.__name = "worker-%s" % self.__hashname
 
     def compute(self, fname, incremental=None):
+        '''
+        calculates the hash (with algorithm self.__hashname) of fname and returns a 2-item tuple: (fname, a hexdigest of the hash)
+        '''
         self.__fname = fname
         try:
             self.__hashdata = hashlib.new(self.__hashname)
         except ValueError:
             raise NotImplementedError("# %s : hash algorithm [ %s ] not implemented" % (self.__name, self.__hashname))
-        #incremental = True
         except KeyboardInterrupt:
             sys.exit()
         try:
-            logging.info('\tcompute opening %s' % ( str(self.__fname) ))
+            logging.info('\tcompute opening %s' % (str(self.__fname)))
             with open(self.__fname, self.__rmode) as fhandle:
                 if incremental is not None:
                     if NO_HUMANFRIENDLY is None:
-                        logging.debug('\t\treading incrementally... (increments of: %s bytes)' % ( str(self.__bufsize) ) )
+                        logging.debug('\t\treading incrementally... (increments of: %s bytes)' % (str(self.__bufsize)))
                     elif NO_HUMANFRIENDLY is not None:
-                        logging.debug('\t\treading incrementally... (increments of: %s)' % ( humanfriendly.format_size(self.__bufsize) ) )
+                        logging.debug('\t\treading incrementally... (increments of: %s)' % (humanfriendly.format_size(self.__bufsize)))
 
                     data = fhandle.read(self.__bufsize)
                     while data:
@@ -83,50 +89,22 @@ class Worker():
         except KeyboardInterrupt:
             sys.exit()
 
-        logging.debug('\t\t\t\tfile: "%s" : %s' % (str(self.__fname), str(self.__hashdata.hexdigest())) )
+        logging.debug('\t\t\t\tfile: "%s" : %s' % (str(self.__fname), str(self.__hashdata.hexdigest())))
         return (self.__fname, self.__hashdata.hexdigest())
 
     def computeByteArray(self, fname, fSize, incremental=None):
         #TODO: eliminate function call overhead associated with calling computeByteArray for EVERY goddamned file!
         localFName = fname
-        localByteBuffer   = bytearray(fSize)
+        localByteBuffer = bytearray(fSize)
         localHashdata = hashlib.new('sha1')
-        #incremental = True
-        
-        #pre-load globals!
-##        localLogging = logging
-##        localStr     = str
-##        try:
-##            localLogging.info('\tcompute opening %s' % ( localStr(self.__fname) ))
-##            with io.open(self.__fname, 'rb') as fhandle:
-##                if NO_HUMANFRIENDLY is None:
-##                    localLogging.debug('\t\treading incrementally... (increments of: %s bytes)' % ( localStr(self.__bufsize) ) )
-##                elif NO_HUMANFRIENDLY is not None:
-##                    localLogging.debug('\t\treading incrementally... (increments of: %s)' % ( humanfriendly.format_size(self.__bufsize) ) )
-##                totalData = 0
-##                data = fhandle.readinto(self.__byteBuffer)
-##                while data != 0:
-##                    self.__hashdata.update(self.__byteBuffer[:data])
-##                    data = fhandle.readinto(self.__byteBuffer)
-##
-##        except KeyboardInterrupt:
-##            sys.exit()
-
-##        localLogging.info('\tcompute opening %s' % ( localStr(self.__fname) ))
         try:
             with io.open(localFName, 'rb') as fhandle:
-    ##            if NO_HUMANFRIENDLY is None:
-    ##                localLogging.debug('\t\treading incrementally... (increments of: %s bytes)' % ( localStr(self.__bufsize) ) )
-    ##            elif NO_HUMANFRIENDLY is not None:
-    ##                localLogging.debug('\t\treading incrementally... (increments of: %s)' % ( humanfriendly.format_size(self.__bufsize) ) )
-    ##            totalData = 0
                 data = fhandle.readinto(localByteBuffer)
                 while data != 0:
                     localHashdata.update(localByteBuffer[:data])
                     data = fhandle.readinto(localByteBuffer)
         except PermissionError:
             logging.warning("PermissionError while opening %s" % (str(localFName)))
-##        localLogging.debug('\t\t\t\tfile: "%s" : %s' % (localStr(self.__fname), localStr(self.__hashdata.hexdigest())) )
         return (localFName, localHashdata.hexdigest())
 
 
@@ -186,7 +164,7 @@ def getFileSizeFromOS(theFileInQuestion):
             logging.warning('Windows could not find %s, and thereby failed to find the size of said file.' % (str(theFileInQuestion)))
             fileSizeInBytes = 0
         else:
-            logging.warning('Windows error %s while getting size of "%s"!\n\tMay god have mercy on your soul.\n\n' % ( str(winErr.errno), str(theFileInQuestion)))
+            logging.warning('Windows error %s while getting size of "%s"!\n\tMay god have mercy on your soul.\n\n' % (str(winErr.errno), str(theFileInQuestion)))
             fileSizeInBytes = 0
         #fileSizeInBytes = 0
     return fileSizeInBytes
@@ -215,13 +193,13 @@ def printListOfDuplicateFiles(listOfDuplicateFiles):
                     print('\t%s' % (str(aFileName)))
             except ValueError:
                 logging.warning('\t\tError formatting item for human friendly printing!')
-                logging.debug('\t\t\tItem: "%s" at fault!' % ( str(item) ))
+                logging.debug('\t\t\tItem: "%s" at fault!' % (str(item)))
                 for i in range(len(item)):
                     indent = '\t' * (4 + i)
                     logging.debug('%sitem[%i]: %s' % (indent, i, str(item[i])))
                 sys.exit()
             except UnicodeEncodeError:
-                logging.warning('\t\tfilename is evil! filename: "%s"' % ( str(aFileName)) )
+                logging.warning('\t\tfilename is evil! filename: "%s"' % (str(aFileName)))
 
 
 
@@ -248,7 +226,7 @@ def printDuplicateFilesAndReturnWastedSpace(knownFiles):
 
     for key in knownFiles:
         aFile = knownFiles[key][0]
-        fileSizeInBytes =  getFileSizeFromOS(aFile)
+        fileSizeInBytes = getFileSizeFromOS(aFile)
 
         if len(knownFiles[key]) > 1:
             wastedSpace += fileSizeInBytes * (len(knownFiles[key])-1)
@@ -256,14 +234,14 @@ def printDuplicateFilesAndReturnWastedSpace(knownFiles):
             if fileSizeInBytes > 0:
                 sizeOfKnownFiles[key] = fileSizeInBytes * (len(knownFiles[key])-1)
                 logging.debug("\n\t\t\t%s:"%key)
-                
+
             if NO_HUMANFRIENDLY is None:
                 for aSingleFile in knownFiles[key]:
                     logging.debug("\t\t\t%s bytes\t\t\t%s" % (fileSizeInBytes, aSingleFile))
 
             elif NO_HUMANFRIENDLY is not None:
                 for aSingleFile in knownFiles[key]:
-                        logging.debug("\t\t\t%s\t\t\t%s" % (humanfriendly.format_size(fileSizeInBytes), aSingleFile))
+                    logging.debug("\t\t\t%s\t\t\t%s" % (humanfriendly.format_size(fileSizeInBytes), aSingleFile))
 
     sortedSizeOfKnownFiles = sorted(sizeOfKnownFiles, key=knownFiles.__getitem__)
     sortedListSize = []
@@ -279,27 +257,20 @@ def printDuplicateFilesAndReturnWastedSpace(knownFiles):
 
 
 def removeDuplicatesForHeuristic(sortedSizes):
-    #deDupeNeeded = False
     for size in sortedSizes:
         #size should be format: [36, ['C:\\Users\\Alexander Riccio\\Documents\\t.txt']]
         try:
             if len(size[1]) < 2:
                 logging.debug('\t\tremoving sub-two element (%s[1]) list...\n' % (str(size[1])))
                 sortedSizes.remove(size)
-                #deDupeNeeded = True
-            #else:
-                #logging.debug('\t\tNOT removing element of size %i for fileSize %s' % (len(size[1]), str(size[0])))
-                #if len(size[1]) == 2:
-                    #logging.debug('\t\t\telement: %s' % ( str(size[1]) ) )
         except TypeError:
             logging.error('\t\titem "%s" is neither a sequence nor a mapping!' % (str(size)))
             sys.exit()
-##    return deDupeNeeded, sortedSizes
     return sortedSizes
 
 def walkDirAndReturnQueueOfFiles(directoryToWalk):
     queueOfFiles = queue.Queue()
-    logging.debug('Walking %s...' % ( str(directoryToWalk) ) )
+    logging.debug('Walking %s...' % (str(directoryToWalk)))
     for root, dirs, files in os.walk(directoryToWalk):
         '''move to:
             build queue of files -> build pool of processes -> start processes
@@ -308,7 +279,6 @@ def walkDirAndReturnQueueOfFiles(directoryToWalk):
         '''
         for fname in files:
             fullpath = os.path.abspath(os.path.join(root, fname))
-            #logging.debug("\tPutting %s in queueOfPathsToFilesToBeHashed"% (str(fullpath)))
             queueOfFiles.put(fullpath)
         queueOfFiles.put(False)
     return queueOfFiles
@@ -316,7 +286,7 @@ def walkDirAndReturnQueueOfFiles(directoryToWalk):
 
 def walkDirAndReturnListOfFiles(directoryToWalk):
     ListOfFiles = []
-    logging.debug('Walking %s...' % ( str(directoryToWalk) ) )
+    logging.debug('Walking %s...' % (str(directoryToWalk)))
     for root, dirs, files in os.walk(directoryToWalk):
         '''move to:
             build queue of files -> build pool of processes -> start processes
@@ -325,7 +295,6 @@ def walkDirAndReturnListOfFiles(directoryToWalk):
         '''
         for fname in files:
             fullpath = os.path.abspath(os.path.join(root, fname))
-            #logging.debug("\tPutting %s in queueOfPathsToFilesToBeHashed"% (str(fullpath)))
             ListOfFiles.append(fullpath)
     return ListOfFiles
 
@@ -334,7 +303,7 @@ def main_method(heuristic, algorithm, args):
     if args:
         arg0 = args[0]
         fileSizeList = []
-        fileSizeDict = {}        
+        fileSizeDict = {}
         knownFiles = {}
 
         if os.path.isfile(arg0):
@@ -348,7 +317,7 @@ def main_method(heuristic, algorithm, args):
             logging.debug('%s is a directory!!' % (str(arg0)))
             fileList = walkDirAndReturnListOfFiles(arg0)
             lenAllFiles = len(fileList)
-            logging.debug('Found %i files!' % ( lenAllFiles ))
+            logging.debug('Found %i files!' % (lenAllFiles))
             logging.debug('Getting their sizes...')
             for aFile in fileList:
                 fileSize = getFileSizeFromOS(aFile)
@@ -359,33 +328,18 @@ def main_method(heuristic, algorithm, args):
                     else:
                         fileSizeDict[fileSize].append(aFile)
             logging.debug('Populated a dictionary of file sizes!')
-##            reportData = []
-##            for key in fileSizeDict:
-##                try:
-##                    reportData.append(str(('file of size: %s\n\t%s\n' % (str(key), str(fileSizeDict[key])) )))
-##                except UnicodeEncodeError:
-##                    logging.warning('Evil file path %s caused UnicodeEncodeError!' % ( str([ord(aChar) for aChar in str(fileSizeDict[key])]) ) )
-##                    fileSizeDict[key] = []
-                
+
             sortedSizes = []
-            #sortedFileSizes = sorted(fileSizeDict, key=fileSizeDict.__getitem__)
             fileSizeList.sort()
             sortedFileSizes = fileSizeList
             for sortedSize in sortedFileSizes:
                 sortedSizes.append([sortedSize, fileSizeDict.get(sortedSize)])
-            #print(sortedSizes)
             sortedSizes.sort()
-##            for size in sortedSizes:
-##                print(size)
-##            (deDupeNeeded, sortedSizes)  = removeDuplicatesForHeuristic(sortedSizes)
-##            while deDupeNeeded:
-##                (deDupeNeeded, sortedSizes) = removeDuplicatesForHeuristic(sortedSizes)
-
             logging.debug('Sorting a list of %i file sizes!' % (lenAllFiles))
             logging.debug('\tdeduplicating that list...')
-            sortedSizes  = removeDuplicatesForHeuristic(sortedSizes)
-            
-            print('Heuristically identified %i possible duplicate files, from a set of %i files!' % ( sum([ len(size[1]) for size in sortedSizes ]), lenAllFiles ) )
+            sortedSizes = removeDuplicatesForHeuristic(sortedSizes)
+
+            print('Heuristically identified %i possible duplicate files, from a set of %i files!' % (sum([len(size[1]) for size in sortedSizes]), lenAllFiles))
 
             fileHashes = []
             out_q = queue.Queue()
@@ -398,7 +352,7 @@ def main_method(heuristic, algorithm, args):
                     for sortedSizeAndPaths in sortedSizes:
                         listPaths = sortedSizeAndPaths[1]
                         for aPath in listPaths:
-                            result = aWorker.compute(aPath, incremental = True)
+                            result = aWorker.compute(aPath, incremental=True)
                             out_q.put(result)
                         out_q.put(False)
                         nextHash = out_q.get()
@@ -416,7 +370,6 @@ def main_method(heuristic, algorithm, args):
                             knownFiles[fileHashHex] = [fileFullPath]
                         else:
                             knownFiles[fileHashHex].append(fileFullPath)
-                        #(fileFullPath, fileHashHex)  = queueOfFileHashes.get()
                     except KeyboardInterrupt:
                         sys.exit()
 
@@ -425,8 +378,7 @@ def main_method(heuristic, algorithm, args):
                 try:
                     for aFileNameList in sortedSizes:
                         for thisHashFileName in aFileNameList[1]:
-                            #result = aWorker.compute(thisHashFileName, incremental = True)
-                            result = aWorker.computeByteArray(thisHashFileName, aFileNameList[0], incremental = True)
+                            result = aWorker.computeByteArray(thisHashFileName, aFileNameList[0], incremental=True)
                             #maybe pass the size of file into computeByteArray, to then read that size file?
                             fileHashes.append(result)
                     logging.debug('\tComputation complete!')
@@ -440,13 +392,12 @@ def main_method(heuristic, algorithm, args):
                             knownFiles[fileHashHex] = [fileFullPath]
                         else:
                             knownFiles[fileHashHex].append(fileFullPath)
-                        #(fileFullPath, fileHashHex)  = queueOfFileHashes.get()
                     except KeyboardInterrupt:
                         sys.exit()
         else:
             raise IOError("Specified file or directory not found!")
 
-        wastedSpace= printDuplicateFilesAndReturnWastedSpace(knownFiles)
+        wastedSpace = printDuplicateFilesAndReturnWastedSpace(knownFiles)
         print('\n')
         if NO_HUMANFRIENDLY is None:
             print("%s bytes of wasted space!" % wastedSpace)
@@ -470,15 +421,9 @@ def _profile(continuation):
         prof.close()
         stats = hotshot.stats.load(prof_file)
     stats.strip_dirs()
-##    stats.sort_stats('time', 'calls')
-##    stats.print_title()
-##    stats.print_stats(1000)
-##    stats.print_callees(1000)
-##    stats.print_callers(1000)
     for a in ['calls', 'cumtime', 'cumulative', 'ncalls', 'time', 'tottime']:
         try:
             stats.sort_stats(a)
-##            stats.print_title()
             stats.print_stats(10)
             stats.print_callees(10)
             stats.print_callers(10)
@@ -497,7 +442,7 @@ def main():
     parser.add_option('--profile', action='store_true', dest='profile', default=False, help="for the hackers")
     logging.warning("This is a VERY I/O heavy program. You may want to temporairily[TODO: sp?] exclude %s from anti-malware/anti-virus monitoring, especially for Microsoft Security Essentials/Windows Defender. That said, I've never seen Malwarebytes Anti-Malware have a performance impact; leave MBAM as it is." % (str(sys.executable)))
     (options, args) = parser.parse_args()
-    
+
     if options.isDebugMode is not None:
         logging.basicConfig(level=logging.DEBUG)
     else:
@@ -513,12 +458,12 @@ def main():
     if options.profile:
         def safe_main():
             try:
-                main_method(heuristic, algorithm,args)
+                main_method(heuristic, algorithm, args)
             except:
                 pass
         _profile(safe_main)
     else:
-        main_method(heuristic, algorithm,args)
+        main_method(heuristic, algorithm, args)
 
 if __name__ == "__main__":
     main()
