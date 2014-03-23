@@ -178,21 +178,23 @@ def getFileSizeFromOS(theFileInQuestion):
     4
 
     '''
+    localLogging = logging
+    localOS = os
     try:
-        fileSizeInBytes = int(os.stat(theFileInQuestion).st_size)
+        fileSizeInBytes = int(localOS.stat(theFileInQuestion).st_size)
 
     except WindowsError as winErr:
         #logging.warning('Windows error %s while getting size of "%s" in printDuplicateFilesAndReturnWastedSpace!\n\tMay god have mercy on your soul.\n\n' % ( str(winErr.errno), str(theFileInQuestion)))
         if winErr.errno == 1920:
-            if os.path.islink(theFileInQuestion):
-                fileSizeInBytes = os.path.getSize(theFileInQuestion)
+            if localOS.path.islink(theFileInQuestion):
+                fileSizeInBytes = localOS.path.getSize(theFileInQuestion)
             else:
                 fileSizeInBytes = 0
         elif winErr.errno == 2:
-            logging.warning('Windows could not find %s, and thereby failed to find the size of said file.' % (str(theFileInQuestion)))
+            localLogging.warning('Windows could not find %s, and thereby failed to find the size of said file.' % (theFileInQuestion))
             fileSizeInBytes = 0
         else:
-            logging.warning('Windows error %s while getting size of "%s"!\n\tMay god have mercy on your soul.\n\n' % (str(winErr.errno), str(theFileInQuestion)))
+            localLogging.warning('Windows error %s while getting size of "%s"!\n\tMay god have mercy on your soul.\n\n' % (str(winErr.errno), theFileInQuestion))
             fileSizeInBytes = 0
         #fileSizeInBytes = 0
     return fileSizeInBytes
@@ -204,9 +206,9 @@ def printListOfDuplicateFiles(listOfDuplicateFiles, showZeroBytes):
         item[1] = a list of fileNAMES with that size
     '''
     localLogging = logging
-    logging.debug('\tprinting list of duplicate files!')
+    localLogging.debug('\tprinting list of duplicate files!')
     if NO_HUMANFRIENDLY is None:
-        logging.debug('\t\thumanfriendly NOT installed, proceeding with crappy formatting...')
+        localLogging.debug('\t\thumanfriendly NOT installed, proceeding with crappy formatting...')
         for item in listOfDuplicateFiles:
             if item[0] > 0 or showZeroBytes:
                 print("\n%s:" % (str(item[0])))
@@ -215,10 +217,10 @@ def printListOfDuplicateFiles(listOfDuplicateFiles, showZeroBytes):
                         #print("\t%s" % (str(aFileName)))
                         print("\t%s" % (aFileName))
                     except UnicodeEncodeError:
-                        logging.warning("\t\t\tfilename is evil! filename: ", aFileName)
+                        localLogging.warning("\t\t\tfilename is evil! filename: ", aFileName)
 
     elif NO_HUMANFRIENDLY is not None:
-        logging.debug('\t\thumanfriendly IS installed, proceeding with nice formatting...')
+        localLogging.debug('\t\thumanfriendly IS installed, proceeding with nice formatting...')
         for item in listOfDuplicateFiles:
             if item[0] > 0 or showZeroBytes:
                 try:
@@ -229,26 +231,26 @@ def printListOfDuplicateFiles(listOfDuplicateFiles, showZeroBytes):
                         print('\t%s' % (aFileName))
                         #print('\t%s' % (aFileName))
                 except ValueError:
-                    logging.warning('\t\tError formatting item for human friendly printing!')
-                    logging.debug('\t\t\tItem: "%s" at fault!' % (str(item)))
+                    localLogging.warning('\t\tError formatting item for human friendly printing!')
+                    localLogging.debug('\t\t\tItem: "%s" at fault!' % (str(item)))
                     for i in range(len(item)):
                         indent = '\t' * (4 + i)
-                        logging.debug('%sitem[%i]: %s' % (indent, i, str(item[i])))
+                        localLogging.debug('%sitem[%i]: %s' % (indent, i, str(item[i])))
                     sys.exit()
                 except UnicodeEncodeError:
-                    logging.error('\t\tfilename is evil! filename: "%s"' % (str(aFileName)))
+                    localLogging.error('\t\tfilename is evil! filename: "%s"' % (str(aFileName)))
                 except:
                     print('---------------------------------------------------------------------')
-                    logging.fatal('SOMETHING IS VERY WRONG!')
+                    localLogging.fatal('SOMETHING IS VERY WRONG!')
                     sys.exc_info()
                     print("faulting item: ", item)
                     sys.exit(666)
                     print('---------------------------------------------------------------------')
     else:
-        logging.error('Something is VERY wrong in printListOfDuplicateFiles')
+        localLogging.error('Something is VERY wrong in printListOfDuplicateFiles')
 
 
-def printDuplicateFilesAndReturnWastedSpace(knownFiles, stopOnFirstDiff, showZeroBytes):
+def printDuplicateFilesAndReturnWastedSpace(extKnownFiles, stopOnFirstDiff, showZeroBytes):
     '''
     prints duplicate files (as of now, only those > 0 bytes) in the form of
 
@@ -266,33 +268,34 @@ def printDuplicateFilesAndReturnWastedSpace(knownFiles, stopOnFirstDiff, showZer
     '''
     wastedSpace = 0
     sizeOfKnownFiles = {}
-
-    logging.debug('\tcalculating wasted space...')
-
+    knownFiles = extKnownFiles
+    localLogging = logging
+    localLogging.debug('\tcalculating wasted space...')
+    localHumanFriendly = humanfriendly
     for key in knownFiles:
         aFile = knownFiles[key][0]
         fileSizeInBytes = getFileSizeFromOS(aFile)
-        logging.debug('\t\tgot file size: %i' % fileSizeInBytes)
-        logging.debug('\t\tknownFiles[key] %s' % str(knownFiles[key]))
+        #localLogging.debug('\t\tgot file size: %i' % fileSizeInBytes)
+        localLogging.debug('\t\tknownFiles[key] %s' % str(knownFiles[key]))
         if (len(knownFiles[key]) > 0) or (stopOnFirstDiff):
             if fileSizeInBytes > 0 and not stopOnFirstDiff:
                 wastedSpace += fileSizeInBytes * (len(knownFiles[key])-1)
                 sizeOfKnownFiles[key] = fileSizeInBytes * (len(knownFiles[key])-1)
-                logging.debug("\n\t\t\tkey:%s:"%key)
+                localLogging.debug("\n\t\t\tkey:%s:"%key)
             elif fileSizeInBytes >0 and stopOnFirstDiff:
                 wastedSpace += fileSizeInBytes * (len(knownFiles[key]))
                 sizeOfKnownFiles[key] = fileSizeInBytes * (len(knownFiles[key]))
-                logging.debug("\n\t\t\tkey:%s:"%key)
+                localLogging.debug("\n\t\t\tkey:%s:"%key)
             elif fileSizeInBytes == 0:
                 sizeOfKnownFiles[key] = 0
             if NO_HUMANFRIENDLY is None:
                 for aSingleFile in knownFiles[key]:
-                    logging.debug("\t\t\t%s bytes\t\t\t%s" % (fileSizeInBytes, aSingleFile))
+                    localLogging.debug("\t\t\t%s bytes\t\t\t%s" % (fileSizeInBytes, aSingleFile))
             elif NO_HUMANFRIENDLY is not None:
                 for aSingleFile in knownFiles[key]:
-                    logging.debug("\t\t\t%s\t\t\t%s" % (humanfriendly.format_size(fileSizeInBytes), aSingleFile))
-        logging.debug('\t\twasted space so far: %i' % wastedSpace)
-    logging.debug('\tcalculated wasted space: %i' % wastedSpace)
+                    localLogging.debug("\t\t\t%s\t\t\t%s" % (localHumanFriendly.format_size(fileSizeInBytes), aSingleFile))
+        localLogging.debug('\t\twasted space so far: %i' % wastedSpace)
+    localLogging.debug('\tcalculated wasted space: %i' % wastedSpace)
     sortedSizeOfKnownFiles = sorted(sizeOfKnownFiles, key=knownFiles.__getitem__)
     sortedListSize = []
 
@@ -300,21 +303,22 @@ def printDuplicateFilesAndReturnWastedSpace(knownFiles, stopOnFirstDiff, showZer
         sortedListSize.append([sizeOfKnownFiles.get(sortedHash), knownFiles.get(sortedHash)])
 
     sortedListSize.sort()
-    logging.debug('ready to print list of duplicate files!')
+    localLogging.debug('ready to print list of duplicate files!')
     printListOfDuplicateFiles(sortedListSize, showZeroBytes)
 
     return wastedSpace
 
 
 def removeDuplicatesForHeuristic(sortedSizes):
+    localLogging = logging
     for size in sortedSizes:
         #size should be format: [36, ['C:\\Users\\Alexander Riccio\\Documents\\t.txt']]
         try:
             if len(size[1]) < 2:
-                logging.debug('\t\tremoving sub-two element (%s[1]) list...\n' % (str(size[1])))
+                #localLogging.debug('\t\tremoving sub-two element (%s[1]) list...\n' % (str(size[1])))
                 sortedSizes.remove(size)
         except TypeError:
-            logging.error('\t\titem "%s" is neither a sequence nor a mapping!' % (str(size)))
+            localLogging.error('\t\titem "%s" is neither a sequence nor a mapping!' % (str(size)))
             sys.exit()
     return sortedSizes
 
@@ -336,15 +340,16 @@ def walkDirAndReturnQueueOfFiles(directoryToWalk):
 
 def walkDirAndReturnListOfFiles(directoryToWalk):
     ListOfFiles = []
+    localOS = os
     logging.debug('Walking %s...' % (str(directoryToWalk)))
-    for root, dirs, files in os.walk(directoryToWalk):
+    for root, dirs, files in localOS.walk(directoryToWalk):
         '''move to:
             build queue of files -> build pool of processes -> start processes
             like I did in factah over summer, where mp_factorizer is passed nums(a list of numbers to factorize) and a number nprocs (how many processes)
 
         '''
         for fname in files:
-            fullpath = os.path.abspath(os.path.join(root, fname))
+            fullpath = localOS.path.abspath(localOS.path.join(root, fname))
             ListOfFiles.append(fullpath)
     return ListOfFiles
 
@@ -433,13 +438,6 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes):
                             result = aWorker.computeMultipleByteArrays(aFileNameList[1], aFileNameList[0], incremental=True)
                             #returnResult[fileName] = [[_hashlib.HASH, someByteArray, hexdigest, didReadEntireFile]]
                             for aFileName in result.keys():
-##                                for aFileDataList in result[aFileName]:
-##                                    if aFileDataList[3]:
-##                                        it = knownFiles.get(aFileDataList[2])
-##                                        if it is None:
-##                                            knownFiles[aFileDataList[2]] = [aFileDataList[0]]
-##                                        else:
-##                                            knownFiles[aFileDataList[2]].append(aFileDataList[0])
                                 if result[aFileName][3]:
                                     it = knownFiles.get(result[aFileName][2])
                                     if it is None:
