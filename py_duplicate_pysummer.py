@@ -203,6 +203,7 @@ def printListOfDuplicateFiles(listOfDuplicateFiles, showZeroBytes):
         item[0] = the SIZE of a file
         item[1] = a list of fileNAMES with that size
     '''
+    localLogging = logging
     logging.debug('\tprinting list of duplicate files!')
     if NO_HUMANFRIENDLY is None:
         logging.debug('\t\thumanfriendly NOT installed, proceeding with crappy formatting...')
@@ -225,7 +226,7 @@ def printListOfDuplicateFiles(listOfDuplicateFiles, showZeroBytes):
                     #print('\n%s:' % (str(item[0])))
                     print('\n%s:' % (item[0]))
                     for aFileName in item[1]:
-                        print('\t%s' % (str(aFileName)))
+                        print('\t%s' % (aFileName))
                         #print('\t%s' % (aFileName))
                 except ValueError:
                     logging.warning('\t\tError formatting item for human friendly printing!')
