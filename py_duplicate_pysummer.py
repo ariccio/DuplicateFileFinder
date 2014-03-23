@@ -122,14 +122,10 @@ class Worker():
         localDictOfBytes = {}
         localDictOfFileHashResults = {}
         localByteBuffer = bytearray(fSize)
-        #localHashdata = hashlib.new('sha1')
         localHashLib = hashlib
-        #localListOfHashWorkers = []
         for item in localListOfFileNames:
             #localListOfHashWorkers.append(hashlib.new('sha1'))
             localDictOfFileHashResults[item] = [localHashLib.new('sha1'), bytearray(fSize)]
-##        for item in localListOfFileNames:
-##            localDictOfFileHandles[item] =     
         try:
             with contextlib.ExitStack() as stack:
                 for fileName in localDictOfFileHashResults.keys():
@@ -159,15 +155,9 @@ class Worker():
                             logging.debug('%s diverges!' % str(fileName))
                             localDictOfFileHashResults[fileName][3] = False
                     iteration += 1
-##            with io.open(localFName, 'rb') as fhandle:
-##                data = fhandle.readinto(localByteBuffer)
-##                while data != 0:
-##                    localHashdata.update(localByteBuffer[:data])
-##                    data = fhandle.readinto(localByteBuffer)
         except PermissionError:
             logging.warning("PermissionError while opening %s" % (str(localFName)))
         #returnResult[fileName] = [_hashlib.HASH, someByteArray, hexdigest, didReadEntireFile]
-        #returnResult = [localDictOfFileHashResults[aSingleResult] for aSingleResult in localDictOfFileHashResults.keys()]
         #return returnResult
         return localDictOfFileHashResults
 
@@ -182,30 +172,6 @@ def getFileSizeFromOS(theFileInQuestion):
             Python 2.x: '42L'
 
 
-    OLD ('backup') method:
-    --------------------------------------------------------------------------------------------
-    finding the filesize is a bitch. A call to os.stat("pathToSomeFile") returns (on Windows):
-        See: "C:\\Python27\\Lib\\stat.py" for the code that's responsible for this behavior.
-    nt.stat_result(st_mode=33206, st_ino=0L, st_dev=0, st_nlink=0, st_uid=0, st_gid=0, st_size=6253L, st_atime=1391494554L, st_mtime=1391507902L, st_ctime=1391494554L)
-
-    Not exactly readable.
-
-    What we want is st_size, which is 6253 (bytes). This may be less useful than you think, as with NTFS filesystem level compression the filesize ON DISK can be tremendously different.
-
-    The return type of os.stat(), on Windows, is \'nt.stat_result\', so first I strify it.
-    Then, accessing the string as a list, I grab everything between [inbetween?] the parenthesis (i.e. st_mode=...st_ctime=).
-    Next, I split the remaining string with \', \' as the delimiter.
-    I then split each item in (what used to be a str) the list with \'=\' as the delimiter.
-    Now each item in the list is another (2 item) list (i.e. [[\'st_mode\', \'333206\'],...]).
-    I\'m not sure if the position of st_size is constant, so I now iterate over the list (yes, slow linear search) until I find where it is, and store that location.
-    I then store the second item at that position, i.e.:
-             this one↓↓↓↓
-    [[\'st_size\', \'6253L\'],...]
-    Note the trailing L  ↑!
-    I need to trim that trailing \'L\', else we'll run into problems later. So I store the list at [:-1]
-    Now I intify our nicely trimmed integer-only str, and we\'re done!
-
-    ...mostly - now it's time to display this information in a usuable mannner
     -------------------------------------------------------------------------------------------
     >>> (fd, path) = tempfile.mkstemp(); os.write(fd, 'aaaa'); os.close(fd); print os.stat(path).st_size; os.remove(path)
     4
@@ -237,22 +203,29 @@ def printListOfDuplicateFiles(listOfDuplicateFiles):
         item[0] = the SIZE of a file
         item[1] = a list of fileNAMES with that size
     '''
+    logging.debug('\tprinting list of duplicate files!')
     if NO_HUMANFRIENDLY is None:
+        logging.debug('\t\thumanfriendly NOT installed, proceeding with crappy formatting...')
         for item in listOfDuplicateFiles:
             print("\n%s:" % (str(item[0])))
             for aFileName in item[1]:
                 try:
-                    print("\t%s" % (str(aFileName)))
+                    #print("\t%s" % (str(aFileName)))
+                    print("\t%s" % (aFileName))
                 except UnicodeEncodeError:
                     logging.warning("\t\t\tfilename is evil! filename: ", aFileName)
 
     elif NO_HUMANFRIENDLY is not None:
+        logging.debug('\t\thumanfriendly IS installed, proceeding with nice formatting...')
         for item in listOfDuplicateFiles:
             try:
+
                 item[0] = humanfriendly.format_size(item[0])
-                print('\n%s:' % (str(item[0])))
+                #print('\n%s:' % (str(item[0])))
+                print('\n%i:' % (item[0]))
                 for aFileName in item[1]:
                     print('\t%s' % (str(aFileName)))
+                    #print('\t%s' % (aFileName))
             except ValueError:
                 logging.warning('\t\tError formatting item for human friendly printing!')
                 logging.debug('\t\t\tItem: "%s" at fault!' % (str(item)))
@@ -261,8 +234,11 @@ def printListOfDuplicateFiles(listOfDuplicateFiles):
                     logging.debug('%sitem[%i]: %s' % (indent, i, str(item[i])))
                 sys.exit()
             except UnicodeEncodeError:
-                logging.warning('\t\tfilename is evil! filename: "%s"' % (str(aFileName)))
-
+                logging.error('\t\tfilename is evil! filename: "%s"' % (str(aFileName)))
+            except:
+                logging.fatal('SOMETHING IS VERY WRONG!')
+    else:
+        logging.error('Something is VERY wrong in printListOfDuplicateFiles')
 
 
 def printDuplicateFilesAndReturnWastedSpace(knownFiles, stopOnFirstDiff):
@@ -318,7 +294,7 @@ def printDuplicateFilesAndReturnWastedSpace(knownFiles, stopOnFirstDiff):
         sortedListSize.append([sizeOfKnownFiles.get(sortedHash), knownFiles.get(sortedHash)])
 
     sortedListSize.sort()
-
+    logging.debug('ready to print list of duplicate files!')
     printListOfDuplicateFiles(sortedListSize)
 
     return wastedSpace
@@ -534,13 +510,13 @@ def main():
     parser.add_option('--profile', action='store_true', dest='profile', default=False, help="for the hackers")
     parser.add_option("--stopFirstDiff", action='store_true', dest='stopOnFirstDiff', default=False, help="stops reading at first chunk that diverges")
     logger = logging.getLogger('log')
-    #logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.DEBUG)
     logging.warning("This is a VERY I/O heavy program. You may want to temporairily[TODO: sp?] exclude %s from anti-malware/anti-virus monitoring, especially for Microsoft Security Essentials/Windows Defender. That said, I've never seen Malwarebytes Anti-Malware have a performance impact; leave MBAM as it is." % (str(sys.executable)))
     (options, args) = parser.parse_args()
 
-    debugging = options.isDebugMode
+    #debugging = options.isDebugMode
     
-    if debugging:
+    if options.isDebugMode:
         logging.basicConfig(level=logging.DEBUG)
         #logger.setLevel(logging.DEBUG)
         logging.debug('debug mode set!')
