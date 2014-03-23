@@ -197,7 +197,7 @@ def getFileSizeFromOS(theFileInQuestion):
         #fileSizeInBytes = 0
     return fileSizeInBytes
 
-def printListOfDuplicateFiles(listOfDuplicateFiles):
+def printListOfDuplicateFiles(listOfDuplicateFiles, showZeroBytes):
     '''
     expects a list:
         item[0] = the SIZE of a file
@@ -207,41 +207,47 @@ def printListOfDuplicateFiles(listOfDuplicateFiles):
     if NO_HUMANFRIENDLY is None:
         logging.debug('\t\thumanfriendly NOT installed, proceeding with crappy formatting...')
         for item in listOfDuplicateFiles:
-            print("\n%s:" % (str(item[0])))
-            for aFileName in item[1]:
-                try:
-                    #print("\t%s" % (str(aFileName)))
-                    print("\t%s" % (aFileName))
-                except UnicodeEncodeError:
-                    logging.warning("\t\t\tfilename is evil! filename: ", aFileName)
+            if item[0] > 0 or showZeroBytes:
+                print("\n%s:" % (str(item[0])))
+                for aFileName in item[1]:
+                    try:
+                        #print("\t%s" % (str(aFileName)))
+                        print("\t%s" % (aFileName))
+                    except UnicodeEncodeError:
+                        logging.warning("\t\t\tfilename is evil! filename: ", aFileName)
 
     elif NO_HUMANFRIENDLY is not None:
         logging.debug('\t\thumanfriendly IS installed, proceeding with nice formatting...')
         for item in listOfDuplicateFiles:
-            try:
-
-                item[0] = humanfriendly.format_size(item[0])
-                #print('\n%s:' % (str(item[0])))
-                print('\n%i:' % (item[0]))
-                for aFileName in item[1]:
-                    print('\t%s' % (str(aFileName)))
-                    #print('\t%s' % (aFileName))
-            except ValueError:
-                logging.warning('\t\tError formatting item for human friendly printing!')
-                logging.debug('\t\t\tItem: "%s" at fault!' % (str(item)))
-                for i in range(len(item)):
-                    indent = '\t' * (4 + i)
-                    logging.debug('%sitem[%i]: %s' % (indent, i, str(item[i])))
-                sys.exit()
-            except UnicodeEncodeError:
-                logging.error('\t\tfilename is evil! filename: "%s"' % (str(aFileName)))
-            except:
-                logging.fatal('SOMETHING IS VERY WRONG!')
+            if item[0] > 0 or showZeroBytes:
+                try:
+                    item[0] = humanfriendly.format_size(item[0])
+                    #print('\n%s:' % (str(item[0])))
+                    print('\n%s:' % (item[0]))
+                    for aFileName in item[1]:
+                        print('\t%s' % (str(aFileName)))
+                        #print('\t%s' % (aFileName))
+                except ValueError:
+                    logging.warning('\t\tError formatting item for human friendly printing!')
+                    logging.debug('\t\t\tItem: "%s" at fault!' % (str(item)))
+                    for i in range(len(item)):
+                        indent = '\t' * (4 + i)
+                        logging.debug('%sitem[%i]: %s' % (indent, i, str(item[i])))
+                    sys.exit()
+                except UnicodeEncodeError:
+                    logging.error('\t\tfilename is evil! filename: "%s"' % (str(aFileName)))
+                except:
+                    print('---------------------------------------------------------------------')
+                    logging.fatal('SOMETHING IS VERY WRONG!')
+                    sys.exc_info()
+                    print("faulting item: ", item)
+                    sys.exit(666)
+                    print('---------------------------------------------------------------------')
     else:
         logging.error('Something is VERY wrong in printListOfDuplicateFiles')
 
 
-def printDuplicateFilesAndReturnWastedSpace(knownFiles, stopOnFirstDiff):
+def printDuplicateFilesAndReturnWastedSpace(knownFiles, stopOnFirstDiff, showZeroBytes):
     '''
     prints duplicate files (as of now, only those > 0 bytes) in the form of
 
@@ -268,20 +274,19 @@ def printDuplicateFilesAndReturnWastedSpace(knownFiles, stopOnFirstDiff):
         logging.debug('\t\tgot file size: %i' % fileSizeInBytes)
         logging.debug('\t\tknownFiles[key] %s' % str(knownFiles[key]))
         if (len(knownFiles[key]) > 0) or (stopOnFirstDiff):
-            if not stopOnFirstDiff:
-                wastedSpace += fileSizeInBytes * (len(knownFiles[key])-1)
-            elif stopOnFirstDiff:
-                wastedSpace += fileSizeInBytes * (len(knownFiles[key]))
             if fileSizeInBytes > 0 and not stopOnFirstDiff:
+                wastedSpace += fileSizeInBytes * (len(knownFiles[key])-1)
                 sizeOfKnownFiles[key] = fileSizeInBytes * (len(knownFiles[key])-1)
                 logging.debug("\n\t\t\tkey:%s:"%key)
-            elif stopOnFirstDiff:
+            elif fileSizeInBytes >0 and stopOnFirstDiff:
+                wastedSpace += fileSizeInBytes * (len(knownFiles[key]))
                 sizeOfKnownFiles[key] = fileSizeInBytes * (len(knownFiles[key]))
                 logging.debug("\n\t\t\tkey:%s:"%key)
+            elif fileSizeInBytes == 0:
+                sizeOfKnownFiles[key] = 0
             if NO_HUMANFRIENDLY is None:
                 for aSingleFile in knownFiles[key]:
                     logging.debug("\t\t\t%s bytes\t\t\t%s" % (fileSizeInBytes, aSingleFile))
-
             elif NO_HUMANFRIENDLY is not None:
                 for aSingleFile in knownFiles[key]:
                     logging.debug("\t\t\t%s\t\t\t%s" % (humanfriendly.format_size(fileSizeInBytes), aSingleFile))
@@ -295,7 +300,7 @@ def printDuplicateFilesAndReturnWastedSpace(knownFiles, stopOnFirstDiff):
 
     sortedListSize.sort()
     logging.debug('ready to print list of duplicate files!')
-    printListOfDuplicateFiles(sortedListSize)
+    printListOfDuplicateFiles(sortedListSize, showZeroBytes)
 
     return wastedSpace
 
@@ -343,7 +348,7 @@ def walkDirAndReturnListOfFiles(directoryToWalk):
     return ListOfFiles
 
 
-def main_method(heuristic, algorithm, stopOnFirstDiff, args):
+def main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes):
     if args:
         arg0 = args[0]
         fileSizeList = []
@@ -465,7 +470,7 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args):
         else:
             raise IOError("Specified file or directory not found!")
 
-        wastedSpace = printDuplicateFilesAndReturnWastedSpace(knownFiles, stopOnFirstDiff)
+        wastedSpace = printDuplicateFilesAndReturnWastedSpace(knownFiles, stopOnFirstDiff, showZeroBytes)
         print('\n')
         if NO_HUMANFRIENDLY is None:
             print("%s bytes of wasted space!" % wastedSpace)
@@ -509,8 +514,9 @@ def main():
     parser.add_option("--debug", action='store_true', dest="isDebugMode", default=False, help="For the curious ;)")
     parser.add_option('--profile', action='store_true', dest='profile', default=False, help="for the hackers")
     parser.add_option("--stopFirstDiff", action='store_true', dest='stopOnFirstDiff', default=False, help="stops reading at first chunk that diverges")
+    parser.add_option("--showZeroByteFiles", action='store_true', dest='showZeroBytes', default=False, help="shows files of size 0")
     logger = logging.getLogger('log')
-    logging.basicConfig(level=logging.DEBUG)
+    #logging.basicConfig(level=logging.DEBUG)
     logging.warning("This is a VERY I/O heavy program. You may want to temporairily[TODO: sp?] exclude %s from anti-malware/anti-virus monitoring, especially for Microsoft Security Essentials/Windows Defender. That said, I've never seen Malwarebytes Anti-Malware have a performance impact; leave MBAM as it is." % (str(sys.executable)))
     (options, args) = parser.parse_args()
 
@@ -530,17 +536,18 @@ def main():
 
     heuristic = options.heuristic
     algorithm = options.hashname
+    showZeroBytes = options.showZeroBytes
     stopOnFirstDiff = options.stopOnFirstDiff
     if options.profile:
         def safe_main():
             try:
-                main_method(heuristic, algorithm, stopOnFirstDiff, args)
+                main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes)
             except:
                 pass
         _profile(safe_main)
     else:
         try:
-            main_method(heuristic, algorithm, stopOnFirstDiff, args)
+            main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes)
         except KeyboardInterrupt:
             sys.exit(0)
 if __name__ == "__main__":
