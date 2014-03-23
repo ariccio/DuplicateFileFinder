@@ -109,14 +109,18 @@ class Worker():
             logging.warning("PermissionError while opening %s" % (str(localFName)))
         return (localFName, localHashdata.hexdigest())
 
-    def computeMultipleByteArrays(self, listOfFileNames, fSize, incremental=None):
+    def computeMultipleByteArrays(self, listOfFileNames, fileSize, incremental=None):
         '''
         Computes the hash of a LIST of files, chunk by chunk, and stops at the FIRST divergance
         '''
         #TODO: eliminate function call overhead associated with calling computeByteArray for EVERY goddamned file!
+        fSize = 1024
+        iteration = 10
+        #logging.debug('computeMultipleByteArrays')
         localListOfFileNames = listOfFileNames
         localDictOfFileHandles = {}
         localDictOfBytes = {}
+        localDictOfFileHashResults = {}
         localByteBuffer = bytearray(fSize)
         #localHashdata = hashlib.new('sha1')
         localHashLib = hashlib
@@ -129,20 +133,32 @@ class Worker():
         try:
             with contextlib.ExitStack() as stack:
                 for fileName in localDictOfFileHashResults.keys():
+                    logging.debug('working on %s...' % str(fileName))
                     localDictOfFileHashResults[fileName].append(stack.enter_context(io.open(fileName, 'rb')))
-                    localDictOfFileHashResults[fileName].append(keepReading=True)
+                    keepReading = True
+                    localDictOfFileHashResults[fileName].append(keepReading)
+                    #logging.debug('reading %i bytes...' % (int(fSize)*8))
                     localDictOfBytes[fileName] = localDictOfFileHashResults[fileName][2].readinto(localDictOfFileHashResults[fileName][1])
+                    #logging.debug('read %i bytes!' % (int(localDictOfBytes[fileName])*8))
                     
-                while sum([localDictOfBytes[aFile] for localDictOfBytes[aFile] in localDictOfBytes.keys()]) != 0 and any(localDictOfFileHashResults[aSingleFileName][3] for aSingleFileName in localDictOfFileHashResults.keys()):
+                while sum([localDictOfBytes[aFile] for aFile in localDictOfBytes.keys()]) != 0 and any(localDictOfFileHashResults[aSingleFileName][3] for aSingleFileName in localDictOfFileHashResults.keys()):
+                    fSize = 2^iteration
                     for fileName in localDictOfFileHashResults.keys():
+                        logging.debug('\tworking on %s...' % str(fileName))
                         if localDictOfFileHashResults[fileName][3]:
+                            localDictOfFileHashResults[fileName][1] = bytearray(fSize)
                             localDictOfFileHashResults[fileName][0].update(localDictOfFileHashResults[fileName][1][:localDictOfBytes[fileName]])
-                            localDictOfFileHashResults[fileName][2].readinto(localDictOfFileHashResults[fileName][1])
-                            if all(localDictOfFileHashResults[aFile][1].hexdigest() == localDictOfFileHashResults[aFileName][1].hexdigest() for aFileName in localDictOfFileHashResults.keys() if localDictOfFileHashResults[aFileName]):
-                                pass
-                            else:
-                                localDictOfFileHashResults[fileName][3] = False
-            
+                            #logging.debug('\treading %i bytes...' % (int(fSize)*8))
+                            localDictOfBytes[fileName] = localDictOfFileHashResults[fileName][2].readinto(localDictOfFileHashResults[fileName][1])
+                            #logging.debug('\tread %i bytes!' % (int(localDictOfBytes[fileName])*8))
+                    for fileName in localDictOfFileHashResults.keys():
+                        if all(localDictOfFileHashResults[fileName][0].hexdigest() == localDictOfFileHashResults[aFileName][0].hexdigest() for aFileName in localDictOfFileHashResults.keys() if localDictOfFileHashResults[aFileName]) and (len([key for key in localDictOfFileHashResults.keys()])>1):
+                            logging.debug('\t\t\tall converge')
+                            pass
+                        else:
+                            logging.debug('%s diverges!' % str(fileName))
+                            localDictOfFileHashResults[fileName][3] = False
+                    iteration += 1
 ##            with io.open(localFName, 'rb') as fhandle:
 ##                data = fhandle.readinto(localByteBuffer)
 ##                while data != 0:
@@ -150,10 +166,10 @@ class Worker():
 ##                    data = fhandle.readinto(localByteBuffer)
         except PermissionError:
             logging.warning("PermissionError while opening %s" % (str(localFName)))
-        #returnResult = [[aFileName, someByteArray, hexdigest, didReadEntireFile]]
-        returnResult = [localDictOfFileHashResults[aSingleResult] for aSingleResult in localDictOfFileHashResults.keys()]
-        return returnResult
-
+        #returnResult[fileName] = [_hashlib.HASH, someByteArray, hexdigest, didReadEntireFile]
+        #returnResult = [localDictOfFileHashResults[aSingleResult] for aSingleResult in localDictOfFileHashResults.keys()]
+        #return returnResult
+        return localDictOfFileHashResults
 
 def getFileSizeFromOS(theFileInQuestion):
     '''
@@ -249,7 +265,7 @@ def printListOfDuplicateFiles(listOfDuplicateFiles):
 
 
 
-def printDuplicateFilesAndReturnWastedSpace(knownFiles):
+def printDuplicateFilesAndReturnWastedSpace(knownFiles, stopOnFirstDiff):
     '''
     prints duplicate files (as of now, only those > 0 bytes) in the form of
 
@@ -273,14 +289,19 @@ def printDuplicateFilesAndReturnWastedSpace(knownFiles):
     for key in knownFiles:
         aFile = knownFiles[key][0]
         fileSizeInBytes = getFileSizeFromOS(aFile)
-
-        if len(knownFiles[key]) > 1:
-            wastedSpace += fileSizeInBytes * (len(knownFiles[key])-1)
-
-            if fileSizeInBytes > 0:
+        logging.debug('\t\tgot file size: %i' % fileSizeInBytes)
+        logging.debug('\t\tknownFiles[key] %s' % str(knownFiles[key]))
+        if (len(knownFiles[key]) > 0) or (stopOnFirstDiff):
+            if not stopOnFirstDiff:
+                wastedSpace += fileSizeInBytes * (len(knownFiles[key])-1)
+            elif stopOnFirstDiff:
+                wastedSpace += fileSizeInBytes * (len(knownFiles[key]))
+            if fileSizeInBytes > 0 and not stopOnFirstDiff:
                 sizeOfKnownFiles[key] = fileSizeInBytes * (len(knownFiles[key])-1)
-                logging.debug("\n\t\t\t%s:"%key)
-
+                logging.debug("\n\t\t\tkey:%s:"%key)
+            elif stopOnFirstDiff:
+                sizeOfKnownFiles[key] = fileSizeInBytes * (len(knownFiles[key]))
+                logging.debug("\n\t\t\tkey:%s:"%key)
             if NO_HUMANFRIENDLY is None:
                 for aSingleFile in knownFiles[key]:
                     logging.debug("\t\t\t%s bytes\t\t\t%s" % (fileSizeInBytes, aSingleFile))
@@ -288,7 +309,8 @@ def printDuplicateFilesAndReturnWastedSpace(knownFiles):
             elif NO_HUMANFRIENDLY is not None:
                 for aSingleFile in knownFiles[key]:
                     logging.debug("\t\t\t%s\t\t\t%s" % (humanfriendly.format_size(fileSizeInBytes), aSingleFile))
-
+        logging.debug('\t\twasted space so far: %i' % wastedSpace)
+    logging.debug('\tcalculated wasted space: %i' % wastedSpace)
     sortedSizeOfKnownFiles = sorted(sizeOfKnownFiles, key=knownFiles.__getitem__)
     sortedListSize = []
 
@@ -427,14 +449,22 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args):
                         for aFileNameList in sortedSizes:
                             #instead of aFileNameList[0] (which is the size of the file) as the second argument to computMultipleByteArrays, should pass a chunk size!
                             result = aWorker.computeMultipleByteArrays(aFileNameList[1], aFileNameList[0], incremental=True)
-                            #returnResult = [[aFileName, someByteArray, hexdigest, didReadEntireFile]]
-                            for aFileDataList in result:
-                                if aFileDataList[3]:
-                                    it = knownFiles.get(aFileDataList[2])
+                            #returnResult[fileName] = [[_hashlib.HASH, someByteArray, hexdigest, didReadEntireFile]]
+                            for aFileName in result.keys():
+##                                for aFileDataList in result[aFileName]:
+##                                    if aFileDataList[3]:
+##                                        it = knownFiles.get(aFileDataList[2])
+##                                        if it is None:
+##                                            knownFiles[aFileDataList[2]] = [aFileDataList[0]]
+##                                        else:
+##                                            knownFiles[aFileDataList[2]].append(aFileDataList[0])
+                                if result[aFileName][3]:
+                                    it = knownFiles.get(result[aFileName][2])
                                     if it is None:
-                                        knownFiles[aFileDataList[2]] = [aFileDataList[0]]
+                                        knownFiles[result[aFileName][2]] = [aFileName]
                                     else:
-                                        knownFiles[aFileDataList[2]].append(aFileDataList[0])
+                                        knownFiles[result[aFileName][2]].append(aFileName)
+
                     else:
                         for aFileNameList in sortedSizes:
                             for thisHashFileName in aFileNameList[1]:
@@ -459,7 +489,7 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args):
         else:
             raise IOError("Specified file or directory not found!")
 
-        wastedSpace = printDuplicateFilesAndReturnWastedSpace(knownFiles)
+        wastedSpace = printDuplicateFilesAndReturnWastedSpace(knownFiles, stopOnFirstDiff)
         print('\n')
         if NO_HUMANFRIENDLY is None:
             print("%s bytes of wasted space!" % wastedSpace)
@@ -500,17 +530,24 @@ def main():
     parser = OptionParser(usage=usage)
     parser.add_option("--hash", dest="hashname", default="auto", help="select hash algorithm")
     parser.add_option("--heuristic", dest="heuristic", default=True, help="Attempt to hash ONLY files that may be duplicates. ON by default")
-    parser.add_option("--debug", dest="isDebugMode", default=None, help="For the curious ;)")
+    parser.add_option("--debug", action='store_true', dest="isDebugMode", default=False, help="For the curious ;)")
     parser.add_option('--profile', action='store_true', dest='profile', default=False, help="for the hackers")
-    parser.add_option("--stopFirstDiff", action='store_true', dest='stopOnFirstDiff' default=False, help="stops reading at first chunk that diverges")
+    parser.add_option("--stopFirstDiff", action='store_true', dest='stopOnFirstDiff', default=False, help="stops reading at first chunk that diverges")
+    logger = logging.getLogger('log')
+    #logging.basicConfig(level=logging.DEBUG)
     logging.warning("This is a VERY I/O heavy program. You may want to temporairily[TODO: sp?] exclude %s from anti-malware/anti-virus monitoring, especially for Microsoft Security Essentials/Windows Defender. That said, I've never seen Malwarebytes Anti-Malware have a performance impact; leave MBAM as it is." % (str(sys.executable)))
     (options, args) = parser.parse_args()
 
-    if options.isDebugMode is not None:
+    debugging = options.isDebugMode
+    
+    if debugging:
         logging.basicConfig(level=logging.DEBUG)
+        #logger.setLevel(logging.DEBUG)
+        logging.debug('debug mode set!')
     else:
         logging.basicConfig(level=logging.WARNING)
-
+        logging.debug('not debugging! If you see this, something is wrong.')
+        
     if options.hashname == "auto":
         options.hashname = "sha1"
         logging.warning("'auto' as hash selected, so defaulting to 'sha1'\n")
@@ -526,7 +563,9 @@ def main():
                 pass
         _profile(safe_main)
     else:
-        main_method(heuristic, algorithm, stopOnFirstDiff, args)
-
+        try:
+            main_method(heuristic, algorithm, stopOnFirstDiff, args)
+        except KeyboardInterrupt:
+            sys.exit(0)
 if __name__ == "__main__":
     main()
