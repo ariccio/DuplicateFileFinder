@@ -2,6 +2,8 @@
 #-*- coding:utf-8 -*-
 '''
 Based DISTANTLY on code by JEANNENOT Stephane
+
+idea: for possibly duplicate files, read a block at position 2^(number of iterations)
 '''
 from __future__ import print_function
 import sys
@@ -17,7 +19,7 @@ elif sys.version_info.major > 2:
 import logging
 import os
 import hashlib
-#import copy
+import contextlib
 import io
 NO_HUMANFRIENDLY = True
 try:
@@ -107,6 +109,50 @@ class Worker():
             logging.warning("PermissionError while opening %s" % (str(localFName)))
         return (localFName, localHashdata.hexdigest())
 
+    def computeMultipleByteArrays(self, listOfFileNames, fSize, incremental=None):
+        '''
+        Computes the hash of a LIST of files, chunk by chunk, and stops at the FIRST divergance
+        '''
+        #TODO: eliminate function call overhead associated with calling computeByteArray for EVERY goddamned file!
+        localListOfFileNames = listOfFileNames
+        localDictOfFileHandles = {}
+        localDictOfBytes = {}
+        localByteBuffer = bytearray(fSize)
+        #localHashdata = hashlib.new('sha1')
+        localHashLib = hashlib
+        #localListOfHashWorkers = []
+        for item in localListOfFileNames:
+            #localListOfHashWorkers.append(hashlib.new('sha1'))
+            localDictOfFileHashResults[item] = [localHashLib.new('sha1'), bytearray(fSize)]
+##        for item in localListOfFileNames:
+##            localDictOfFileHandles[item] =     
+        try:
+            with contextlib.ExitStack() as stack:
+                for fileName in localDictOfFileHashResults.keys():
+                    localDictOfFileHashResults[fileName].append(stack.enter_context(io.open(fileName, 'rb')))
+                    localDictOfFileHashResults[fileName].append(keepReading=True)
+                    localDictOfBytes[fileName] = localDictOfFileHashResults[fileName][2].readinto(localDictOfFileHashResults[fileName][1])
+                    
+                while sum([localDictOfBytes[aFile] for localDictOfBytes[aFile] in localDictOfBytes.keys()]) != 0 and any(localDictOfFileHashResults[aSingleFileName][3] for aSingleFileName in localDictOfFileHashResults.keys()):
+                    for fileName in localDictOfFileHashResults.keys():
+                        if localDictOfFileHashResults[fileName][3]:
+                            localDictOfFileHashResults[fileName][0].update(localDictOfFileHashResults[fileName][1][:localDictOfBytes[fileName]])
+                            localDictOfFileHashResults[fileName][2].readinto(localDictOfFileHashResults[fileName][1])
+                            if all(localDictOfFileHashResults[aFile][1].hexdigest() == localDictOfFileHashResults[aFileName][1].hexdigest() for aFileName in localDictOfFileHashResults.keys() if localDictOfFileHashResults[aFileName]):
+                                pass
+                            else:
+                                localDictOfFileHashResults[fileName][3] = False
+            
+##            with io.open(localFName, 'rb') as fhandle:
+##                data = fhandle.readinto(localByteBuffer)
+##                while data != 0:
+##                    localHashdata.update(localByteBuffer[:data])
+##                    data = fhandle.readinto(localByteBuffer)
+        except PermissionError:
+            logging.warning("PermissionError while opening %s" % (str(localFName)))
+        #returnResult = [[aFileName, someByteArray, hexdigest, didReadEntireFile]]
+        returnResult = [localDictOfFileHashResults[aSingleResult] for aSingleResult in localDictOfFileHashResults.keys()]
+        return returnResult
 
 
 def getFileSizeFromOS(theFileInQuestion):
@@ -299,7 +345,7 @@ def walkDirAndReturnListOfFiles(directoryToWalk):
     return ListOfFiles
 
 
-def main_method(heuristic, algorithm, args):
+def main_method(heuristic, algorithm, stopOnFirstDiff, args):
     if args:
         arg0 = args[0]
         fileSizeList = []
@@ -375,25 +421,41 @@ def main_method(heuristic, algorithm, args):
 
             elif heuristic is not None:
                 logging.debug('\tComputing with heuristic!')
+                #each item in sortedSizes should be format: [36, ['C:\\Users\\Alexander Riccio\\Documents\\t.txt']]
                 try:
-                    for aFileNameList in sortedSizes:
-                        for thisHashFileName in aFileNameList[1]:
-                            result = aWorker.computeByteArray(thisHashFileName, aFileNameList[0], incremental=True)
-                            #maybe pass the size of file into computeByteArray, to then read that size file?
-                            fileHashes.append(result)
+                    if stopOnFirstDiff:
+                        for aFileNameList in sortedSizes:
+                            #instead of aFileNameList[0] (which is the size of the file) as the second argument to computMultipleByteArrays, should pass a chunk size!
+                            result = aWorker.computeMultipleByteArrays(aFileNameList[1], aFileNameList[0], incremental=True)
+                            #returnResult = [[aFileName, someByteArray, hexdigest, didReadEntireFile]]
+                            for aFileDataList in result:
+                                if aFileDataList[3]:
+                                    it = knownFiles.get(aFileDataList[2])
+                                    if it is None:
+                                        knownFiles[aFileDataList[2]] = [aFileDataList[0]]
+                                    else:
+                                        knownFiles[aFileDataList[2]].append(aFileDataList[0])
+                    else:
+                        for aFileNameList in sortedSizes:
+                            for thisHashFileName in aFileNameList[1]:
+                                result = aWorker.computeByteArray(thisHashFileName, aFileNameList[0], incremental=True)
+                                #maybe pass the size of file into computeByteArray, to then read that size file?
+                                fileHashes.append(result)
+                        for (fileFullPath, fileHashHex) in fileHashes:
+                            try:
+                                it = knownFiles.get(fileHashHex)
+                                if it is None:
+                                    knownFiles[fileHashHex] = [fileFullPath]
+                                else:
+                                    knownFiles[fileHashHex].append(fileFullPath)
+                            except KeyboardInterrupt:
+                                sys.exit()
+
+                                
                     logging.debug('\tComputation complete!')
                 except KeyboardInterrupt:
                     sys.exit()
 
-                for (fileFullPath, fileHashHex) in fileHashes:
-                    try:
-                        it = knownFiles.get(fileHashHex)
-                        if it is None:
-                            knownFiles[fileHashHex] = [fileFullPath]
-                        else:
-                            knownFiles[fileHashHex].append(fileFullPath)
-                    except KeyboardInterrupt:
-                        sys.exit()
         else:
             raise IOError("Specified file or directory not found!")
 
@@ -440,6 +502,7 @@ def main():
     parser.add_option("--heuristic", dest="heuristic", default=True, help="Attempt to hash ONLY files that may be duplicates. ON by default")
     parser.add_option("--debug", dest="isDebugMode", default=None, help="For the curious ;)")
     parser.add_option('--profile', action='store_true', dest='profile', default=False, help="for the hackers")
+    parser.add_option("--stopFirstDiff", action='store_true', dest='stopOnFirstDiff' default=False, help="stops reading at first chunk that diverges")
     logging.warning("This is a VERY I/O heavy program. You may want to temporairily[TODO: sp?] exclude %s from anti-malware/anti-virus monitoring, especially for Microsoft Security Essentials/Windows Defender. That said, I've never seen Malwarebytes Anti-Malware have a performance impact; leave MBAM as it is." % (str(sys.executable)))
     (options, args) = parser.parse_args()
 
@@ -454,16 +517,16 @@ def main():
 
     heuristic = options.heuristic
     algorithm = options.hashname
-
+    stopOnFirstDiff = options.stopOnFirstDiff
     if options.profile:
         def safe_main():
             try:
-                main_method(heuristic, algorithm, args)
+                main_method(heuristic, algorithm, stopOnFirstDiff, args)
             except:
                 pass
         _profile(safe_main)
     else:
-        main_method(heuristic, algorithm, args)
+        main_method(heuristic, algorithm, stopOnFirstDiff, args)
 
 if __name__ == "__main__":
     main()
