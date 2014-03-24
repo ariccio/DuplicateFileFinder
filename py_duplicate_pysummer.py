@@ -114,8 +114,8 @@ class Worker():
         Computes the hash of a LIST of files, chunk by chunk, and stops at the FIRST divergance
         '''
         #TODO: eliminate function call overhead associated with calling computeByteArray for EVERY goddamned file!
-        fSize = 1024
-        iteration = 10
+        fSize = 134217728
+        iteration = 27
         #logging.debug('computeMultipleByteArrays')
         localListOfFileNames = listOfFileNames
         localDictOfFileHandles = {}
@@ -133,27 +133,27 @@ class Worker():
                     localDictOfFileHashResults[fileName].append(stack.enter_context(io.open(fileName, 'rb')))
                     keepReading = True
                     localDictOfFileHashResults[fileName].append(keepReading)
-                    #logging.debug('reading %i bytes...' % (int(fSize)*8))
+                    logging.debug('reading %i bytes...' % (int(fSize)*8))
                     localDictOfBytes[fileName] = localDictOfFileHashResults[fileName][2].readinto(localDictOfFileHashResults[fileName][1])
-                    #logging.debug('read %i bytes!' % (int(localDictOfBytes[fileName])*8))
+                    logging.debug('read %i bytes!' % (int(localDictOfBytes[fileName])*8))
                     
                 while sum([localDictOfBytes[aFile] for aFile in localDictOfBytes.keys()]) != 0 and any(localDictOfFileHashResults[aSingleFileName][3] for aSingleFileName in localDictOfFileHashResults.keys()):
-                    fSize = 2^iteration
+                    fSize = 2**iteration
                     for fileName in localDictOfFileHashResults.keys():
                         logging.debug('\tworking on %s...' % str(fileName))
                         if localDictOfFileHashResults[fileName][3]:
                             localDictOfFileHashResults[fileName][1] = bytearray(fSize)
                             localDictOfFileHashResults[fileName][0].update(localDictOfFileHashResults[fileName][1][:localDictOfBytes[fileName]])
-                            #logging.debug('\treading %i bytes...' % (int(fSize)*8))
+                            logging.debug('\treading %i bytes...' % (int(fSize)*8))
                             localDictOfBytes[fileName] = localDictOfFileHashResults[fileName][2].readinto(localDictOfFileHashResults[fileName][1])
-                            #logging.debug('\tread %i bytes!' % (int(localDictOfBytes[fileName])*8))
-                    for fileName in localDictOfFileHashResults.keys():
-                        if all(localDictOfFileHashResults[fileName][0].hexdigest() == localDictOfFileHashResults[aFileName][0].hexdigest() for aFileName in localDictOfFileHashResults.keys() if localDictOfFileHashResults[aFileName]) and (len([key for key in localDictOfFileHashResults.keys()])>1):
-                            logging.debug('\t\t\tall converge')
-                            pass
-                        else:
-                            logging.debug('%s diverges!' % str(fileName))
-                            localDictOfFileHashResults[fileName][3] = False
+                            logging.debug('\tread %i bytes!' % (int(localDictOfBytes[fileName])*8))
+#                    for fileName in localDictOfFileHashResults.keys():
+                    if any(localDictOfBytes[aNumRead] > 0 for aNumRead in localDictOfBytes.keys()) and all(localDictOfFileHashResults[fileName][0].hexdigest() == localDictOfFileHashResults[aFileName][0].hexdigest() for aFileName in localDictOfFileHashResults.keys() if localDictOfFileHashResults[aFileName]) and (len([key for key in localDictOfFileHashResults.keys()])>1):
+                        #logging.debug('\t\t\tall converge')
+                        pass
+                    else:
+                        logging.debug('%s diverges!' % str(fileName))
+                        localDictOfFileHashResults[fileName][3] = False
                     iteration += 1
         except PermissionError:
             logging.warning("PermissionError while opening %s" % (str(localFName)))
@@ -493,12 +493,13 @@ def _profile(continuation):
         prof.close()
         stats = hotshot.stats.load(prof_file)
     stats.strip_dirs()
-    for a in ['calls', 'cumtime', 'cumulative', 'ncalls', 'time', 'tottime']:
+    #for a in ['calls', 'cumtime', 'cumulative', 'ncalls', 'time', 'tottime']:
+    for a in ['calls', 'cumtime', 'cumulative', 'time']:
         try:
             stats.sort_stats(a)
-            stats.print_stats(10)
-            stats.print_callees(10)
-            stats.print_callers(10)
+            stats.print_stats(100)
+            stats.print_callees(100)
+            #stats.print_callers(10)
         except KeyError:
             pass
     os.remove(prof_file)
@@ -515,7 +516,7 @@ def main():
     parser.add_option("--stopFirstDiff", action='store_true', dest='stopOnFirstDiff', default=False, help="stops reading at first chunk that diverges")
     parser.add_option("--showZeroByteFiles", action='store_true', dest='showZeroBytes', default=False, help="shows files of size 0")
     logger = logging.getLogger('log')
-    #logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.DEBUG)
     logging.warning("This is a VERY I/O heavy program. You may want to temporairily[TODO: sp?] exclude %s from anti-malware/anti-virus monitoring, especially for Microsoft Security Essentials/Windows Defender. That said, I've never seen Malwarebytes Anti-Malware have a performance impact; leave MBAM as it is." % (str(sys.executable)))
     (options, args) = parser.parse_args()
 
