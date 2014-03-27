@@ -126,8 +126,14 @@ class Worker():
         localByteBuffer = bytearray(fSize[0])
         localHashLib = hashlib
         localLogging = logging
+        localLen = len
+        localAll = all
+        localAny = any
+        localBytearray = bytearray
+        localPermissionError = PermissionError
+        localIO = io
         for item in localListOfFileNames:
-            localDictOfFileHashResults[item] = [localHashLib.new('sha1'), bytearray(fSize[0])]
+            localDictOfFileHashResults[item] = [localHashLib.new('sha1'), localBytearray(fSize[0])]
         fSize[0] = 0
         #localLogging.debug('\tComputing multiple byte arrays: %s' % str(localListOfFileNames))
         #localLogging.debug('\tfSize: %i' % fSize[-1])
@@ -135,7 +141,7 @@ class Worker():
             with contextlib.ExitStack() as stack:
                 for fileName in localDictOfFileHashResults.keys():
                     #localLogging.debug('\n\t\t\tworking on %s...' % str(fileName))
-                    localDictOfFileHashResults[fileName].append(stack.enter_context(io.open(fileName, 'rb')))
+                    localDictOfFileHashResults[fileName].append(stack.enter_context(localIO.open(fileName, 'rb')))
                     keepReading = True
                     localDictOfFileHashResults[fileName].append(keepReading)
                     localDictOfBytes[fileName] = localDictOfFileHashResults[fileName][2].readinto(localDictOfFileHashResults[fileName][1])
@@ -143,15 +149,15 @@ class Worker():
                     #localDictOfFileHashResults[key] = [hashlibSHA1, bytearray, fileObject.rb, bool]
                 #localLogging.debug("\t\tfSize[-1]: %i" % fSize[-1])
                 #localLogging.debug("\t\tlocalDictOfBytes[fileName]: %i" % localDictOfBytes[fileName])
-                while any(localDictOfFileHashResults[aSingleFileName][3] for aSingleFileName in localDictOfFileHashResults.keys()) and fSize[-1] <= fileSize:
+                while localAny(localDictOfFileHashResults[aSingleFileName][3] for aSingleFileName in localDictOfFileHashResults.keys()) and fSize[-1] <= fileSize:
                     fSize.append(2**iteration)
                     for fileName in localDictOfFileHashResults.keys():
                         #localLogging.debug('\t\t\tworking on %s...' % str(fileName))
                         if localDictOfFileHashResults[fileName][3]:
                             #localLogging.debug("\t\t\tfSize[-2]:fSize[-1] %i:%i" % (fSize[-2],fSize[-1]))
                             localDictOfFileHashResults[fileName][0].update(localDictOfFileHashResults[fileName][1][fSize[-2]:fSize[-1]])
-                    if all(localDictOfFileHashResults[fileName][0].hexdigest() == localDictOfFileHashResults[aFileName][0].hexdigest() for aFileName in localDictOfFileHashResults.keys() if localDictOfFileHashResults[aFileName] and aFileName !=fileName):
-                        if len(localDictOfFileHashResults.keys())>1:
+                    if localAll(localDictOfFileHashResults[fileName][0].hexdigest() == localDictOfFileHashResults[aFileName][0].hexdigest() for aFileName in localDictOfFileHashResults.keys() if localDictOfFileHashResults[aFileName] and aFileName !=fileName):
+                        if localLen(localDictOfFileHashResults.keys())>1:
                             pass
                             #localLogging.debug('\t\t\t\tall converge\n')
                         else:
@@ -162,8 +168,8 @@ class Worker():
                         localDictOfFileHashResults[fileName][3] = False
 ##                    logging.debug("\t\t\tlocalDictOfFileHashResults[fileName][3] for fileName in keys: %s\n" % str([localDictOfFileHashResults[fileName][3] for fileName in localDictOfFileHashResults.keys()]))
                     iteration += 1
-        except PermissionError:
-            localLogging.warning("PermissionError while opening %s" % (str(localFName)))
+        except localPermissionError:
+            localLogging.warning("PermissionError while opening %s" % ('a file'))#TODO: fix
         #returnResult[fileName] = [_hashlib.HASH, someByteArray, hexdigest, didReadEntireFile]
         #return returnResult
         return localDictOfFileHashResults
@@ -189,7 +195,7 @@ def getFileSizeFromOS(theFileInQuestion):
     localOS = os
     localInt = int
     localWindowsError = WindowsError
-    localStr
+    localStr = str
     try:
         fileSizeInBytes = localInt(localOS.stat(theFileInQuestion).st_size)
 
@@ -440,15 +446,16 @@ def removeDuplicatesForHeuristic(sortedSizes):
 
 def walkDirAndReturnQueueOfFiles(directoryToWalk):
     queueOfFiles = queue.Queue()
-    logging.debug('Walking %s...' % (str(directoryToWalk)))
-    for root, dirs, files in os.walk(directoryToWalk):
+    #logging.debug('Walking %s...' % (str(directoryToWalk)))
+    localOS = os
+    for root, dirs, files in localOS.walk(directoryToWalk):
         '''move to:
             build queue of files -> build pool of processes -> start processes
             like I did in factah over summer, where mp_factorizer is passed nums(a list of numbers to factorize) and a number nprocs (how many processes)
 
         '''
         for fname in files:
-            fullpath = os.path.abspath(os.path.join(root, fname))
+            fullpath = localOS.path.abspath(os.path.join(root, fname))
             queueOfFiles.put(fullpath)
         queueOfFiles.put(False)
     return queueOfFiles
@@ -457,7 +464,7 @@ def walkDirAndReturnQueueOfFiles(directoryToWalk):
 def walkDirAndReturnListOfFiles(directoryToWalk):
     ListOfFiles = []
     localOS = os
-    logging.debug('Walking %s...' % (str(directoryToWalk)))
+    #logging.debug('Walking %s...' % (str(directoryToWalk)))
     for root, dirs, files in localOS.walk(directoryToWalk):
         '''move to:
             build queue of files -> build pool of processes -> start processes
@@ -476,19 +483,23 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes):
         fileSizeList = []
         fileSizeDict = {}
         knownFiles = {}
+        localIndexError = IndexError
         localKeyboardInterrupt = KeyboardInterrupt
-
+        localStr = str
+        localPrint = print
+        localLen = len
+        localSum = sum
         if os.path.isfile(arg0):
-            logging.debug('%s is a file!' % (str(arg0)))
+            logging.debug('%s is a file!' % (localStr(arg0)))
             w = Worker(algorithm)
             hw = w.compute(arg0)
-            print("%s *%s" % (hw, arg0))
+            localPrint("%s *%s" % (hw, arg0))
             knownFiles[hw] = arg0
 
         elif os.path.isdir(arg0):
-            logging.debug('%s is a directory!!' % (str(arg0)))
+            logging.debug('%s is a directory!!' % (localStr(arg0)))
             fileList = walkDirAndReturnListOfFiles(arg0)
-            lenAllFiles = len(fileList)
+            lenAllFiles = localLen(fileList)
             logging.debug('Found %i files!' % (lenAllFiles))
             logging.debug('Getting their sizes...')
             for aFile in fileList:
@@ -511,7 +522,7 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes):
             logging.debug('\tdeduplicating that list...')
             sortedSizes = removeDuplicatesForHeuristic(sortedSizes)
 
-            print('Heuristically identified %i possible duplicate files, from a set of %i files!' % (sum([len(size[1]) for size in sortedSizes]), lenAllFiles))
+            localPrint('Heuristically identified %i possible duplicate files, from a set of %i files!' % (localSum([localLen(size[1]) for size in sortedSizes]), lenAllFiles))
 
             fileHashes = []
             out_q = queue.Queue()
@@ -570,11 +581,15 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes):
 ##                                    fileHashHexDict[result[aKey][0].hexdigest()].append(result[aKey][2].name)
                                 #logging.debug("\t\t\taFileName:           %s" % str(aKey))
                                 #logging.debug("\t\t\tresult[aFileName][2] %s" % str(result[aKey][2].name))
-                                it = knownFiles.get((result[aKey][2]))
-                                if it is None:
-                                    knownFiles[(result[aKey][2].name)] = [aKey]
-                                else:
-                                    knownFiles[(result[aKey][2].name)].append(aKey)
+                                try:
+                                    it = knownFiles.get((result[aKey][2]))
+                                    if it is None:
+                                        knownFiles[(result[aKey][2].name)] = [aKey]
+                                    else:
+                                        knownFiles[(result[aKey][2].name)].append(aKey)
+                                except localIndexError:
+                                    #knownFiles[(result[aKey][2].name)] = [aKey]
+                                    pass
 ##                                knownFiles = fileHashHexDict
                     else:
                         for aFileNameList in sortedSizes:
@@ -599,13 +614,13 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes):
 
         else:
             raise IOError("Specified file or directory not found!")
-        print("\tComputation complete!")
+        localPrint("\tComputation complete!")
         wastedSpace = printDuplicateFilesAndReturnWastedSpace(knownFiles, stopOnFirstDiff, showZeroBytes)
-        print('\n')
+        localPrint('\n')
         if NO_HUMANFRIENDLY is None:
-            print("%s bytes of wasted space!" % wastedSpace)
+            localPrint("%s bytes of wasted space!" % wastedSpace)
         elif NO_HUMANFRIENDLY is not None:
-            print("%s of wasted space!" % humanfriendly.format_size(wastedSpace))
+            localPrint("%s of wasted space!" % humanfriendly.format_size(wastedSpace))
 
 def _profile(continuation):
     prof_file = 'duplicateFileFinder.prof'
