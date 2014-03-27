@@ -295,17 +295,19 @@ def printDuplicateFilesAndReturnWastedSpace(extKnownFiles, stopOnFirstDiff, show
     '''
     prints duplicate files (as of now, only those > 0 bytes) in the form of
 
-    someVeryLongHashOfADuplicateFile:
+    size:
     numBytes bytes          pathToFile
 
     e.g.:
 
-    f9f629771f00de09cb63f10a4dbae4d7a8f72544:
-    59217687 bytes          C:\\Users\\Alexander Riccio\\Downloads\\testDir\\blah.pdf
-    59217687 bytes          C:\\Users\\Alexander Riccio\\Downloads\\testDir\\blahBlah.pdf
+    374.27 MB:
+            C:\\Users\\Alexander Riccio\\Downloads\\testDir\\blah.pdf
+            C:\\Users\\Alexander Riccio\\Downloads\\testDir\\blahBlah.pdf
 
     If you have humanfriendly ("humansize") installed, the output will be more readable - i.e. 1 KB, not 1024.
     I also increment a counter, wastedSpace, by filesize over each file.
+
+    ALOT happens in this function - AND it is performance critical - so it's huge
     '''
     wastedSpace = 0
     sizeOfKnownFiles = {}
@@ -383,6 +385,23 @@ def printDuplicateFilesAndReturnWastedSpace(extKnownFiles, stopOnFirstDiff, show
             newLSizes.append([aSizeKey, sizes[aSizeKey]])
     logging.debug('\n\n\n\n')
     localLogging.debug('ready to print list of duplicate files!')
+##UNPYTHONIC
+    iterator = 0
+    while not all(newLSizes[newLSizes.index(itera)+1] > newLSizes[newLSizes.index(itera)] for itera in newLSizes if itera != newLSizes[-1]):
+        iterator = 0
+        while iterator < len(newLSizes)-1:
+            try:
+                if newLSizes[iterator+1] < newLSizes[iterator]:
+                    try:
+                        popped = newLSizes.pop(iterator)
+                        newLSizes.insert(iterator+1, popped)
+                    except ValueError:
+                        print('valueerror')
+            except IndexError:
+                print("IndexError ", iterator)
+            iterator+=1
+##ENDUNPYTHONIC
+    
 ##    printListOfDuplicateFiles(sortedListSize, showZeroBytes)
     printListOfDuplicateFiles(newLSizes, showZeroBytes, stopOnFirstDiff)
 ##HACK
@@ -571,7 +590,7 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes):
 
         else:
             raise IOError("Specified file or directory not found!")
-
+        print("\tComputation complete!")
         wastedSpace = printDuplicateFilesAndReturnWastedSpace(knownFiles, stopOnFirstDiff, showZeroBytes)
         print('\n')
         if NO_HUMANFRIENDLY is None:
@@ -600,8 +619,8 @@ def _profile(continuation):
     for a in ['cumtime', 'cumulative', 'time']:
         try:
             stats.sort_stats(a)
-            stats.print_stats(100)
-            stats.print_callees(100)
+            stats.print_stats(150)
+            stats.print_callees(150)
             #stats.print_callers(10)
         except KeyError:
             pass
@@ -619,7 +638,7 @@ def main():
     parser.add_option("--stopFirstDiff", action='store_true', dest='stopOnFirstDiff', default=False, help="stops reading at first chunk that diverges")
     parser.add_option("--showZeroByteFiles", action='store_true', dest='showZeroBytes', default=False, help="shows files of size 0")
     logger = logging.getLogger('log')
-    logging.basicConfig(level=logging.DEBUG)
+    #logging.basicConfig(level=logging.DEBUG)
     logging.warning("This is a VERY I/O heavy program. You may want to temporairily[TODO: sp?] exclude %s from anti-malware/anti-virus monitoring, especially for Microsoft Security Essentials/Windows Defender. That said, I've never seen Malwarebytes Anti-Malware have a performance impact; leave MBAM as it is." % (str(sys.executable)))
     (options, args) = parser.parse_args()
 
