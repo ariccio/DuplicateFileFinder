@@ -132,8 +132,15 @@ class Worker():
         localBytearray = bytearray
         localPermissionError = PermissionError
         localIO = io
+        localMemoryError = MemoryError
+        localStr = str
         for item in localListOfFileNames:
-            localDictOfFileHashResults[item] = [localHashLib.new('sha1'), localBytearray(fSize[0])]
+            try:
+                localDictOfFileHashResults[item] = [localHashLib.new('sha1'), localBytearray(fSize[0])]
+            except localMemoryError:
+                logging.error("Your computer probably just got really slow! That was my fault. Sorry!")
+                logging.error("File %s was just TOO big" % localStr(item))
+                
         fSize[0] = 0
         #localLogging.debug('\tComputing multiple byte arrays: %s' % str(localListOfFileNames))
         #localLogging.debug('\tfSize: %i' % fSize[-1])
@@ -659,7 +666,7 @@ def main():
     parser.add_option("--heuristic", dest="heuristic", default=True, help="Attempt to hash ONLY files that may be duplicates. ON by default")
     parser.add_option("--debug", action='store_true', dest="isDebugMode", default=False, help="For the curious ;)")
     parser.add_option('--profile', action='store_true', dest='profile', default=False, help="for the hackers")
-    parser.add_option("--stopFirstDiff", action='store_true', dest='stopOnFirstDiff', default=False, help="stops reading at first chunk that diverges")
+    parser.add_option("--stopFirstDiff", action='store_true', dest='stopOnFirstDiff', default=True, help="stops reading at first chunk that diverges. ON by default.")
     parser.add_option("--showZeroByteFiles", action='store_true', dest='showZeroBytes', default=False, help="shows files of size 0")
     logger = logging.getLogger('log')
     #logging.basicConfig(level=logging.DEBUG)
