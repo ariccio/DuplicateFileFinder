@@ -227,12 +227,13 @@ def getFileSizeFromOS(theFileInQuestion):
         #fileSizeInBytes = 0
     return fileSizeInBytes
 
-def printListOfDuplicateFiles(listOfDuplicateFiles, showZeroBytes):
+def printListOfDuplicateFiles(extlistOfDuplicateFiles, showZeroBytes, stopOnFirstDiff):
     '''
     expects a list:
         item[0] = the SIZE of a file
         item[1] = a list of fileNAMES with that size
     '''
+    listOfDuplicateFiles = extlistOfDuplicateFiles
     localLogging = logging
     localLogging.debug('\tprinting list of duplicate files!')
     if NO_HUMANFRIENDLY is None:
@@ -240,13 +241,22 @@ def printListOfDuplicateFiles(listOfDuplicateFiles, showZeroBytes):
         for item in listOfDuplicateFiles:
 ##            localLogging.debug("item: %s" % str(item))
             if item[0] > 0 or showZeroBytes:
-                print("\n%s:" % (str(item[0])))
-                for aFileName in item[1]:
-                    try:
-                        #print("\t%s" % (str(aFileName)))
-                        print("\t%s" % (aFileName))
-                    except UnicodeEncodeError:
-                        localLogging.warning("\t\t\tfilename is evil! filename: ", aFileName)
+                if stopOnFirstDiff and len(item[1])>1:
+                    print("\n%s:" % (str(item[0])))
+                    for aFileName in item[1]:
+                        try:
+                            #print("\t%s" % (str(aFileName)))
+                            print("\t%s" % (aFileName))
+                        except UnicodeEncodeError:
+                            localLogging.warning("\t\t\tfilename is evil! filename: ", aFileName)                
+                elif not stopOnFirstDiff:
+                    print("\n%s:" % (str(item[0])))
+                    for aFileName in item[1]:
+                        try:
+                            #print("\t%s" % (str(aFileName)))
+                            print("\t%s" % (aFileName))
+                        except UnicodeEncodeError:
+                            localLogging.warning("\t\t\tfilename is evil! filename: ", aFileName)
 
     elif NO_HUMANFRIENDLY is not None:
         localLogging.debug('\t\thumanfriendly IS installed, proceeding with nice formatting...')
@@ -254,14 +264,15 @@ def printListOfDuplicateFiles(listOfDuplicateFiles, showZeroBytes):
 ##            localLogging.debug("\t\t\t\titem: %s" % str(item))
             if item[0] > 0 or showZeroBytes:
                 try:
-                    item[0] = humanfriendly.format_size(item[0])
+                    item.append(humanfriendly.format_size(item[0]))
+                    #↑that is a HACK, to fix the weirdness of python's pass-by-assignment nature
                     #print('\n%s:' % (str(item[0])))
-                    print('\n%s:' % (item[0]))
+                    print('\n%s:' % (item[2]))
                     for aFileName in item[1]:
                         print('\t%s' % (aFileName))
                         #print('\t%s' % (aFileName))
                 except ValueError:
-                    localLogging.warning('\t\tError formatting item %s for human friendly printing!' % str(item[0]))
+                    localLogging.warning('\t\tError formatting item %s for human friendly printing!' % str(item[2]))
                     localLogging.debug('\t\t\tItem: "%s" at fault!' % (str(item)))
                     for i in range(len(item)):
                         indent = '\t' * (4 + i)
@@ -302,11 +313,12 @@ def printDuplicateFilesAndReturnWastedSpace(extKnownFiles, stopOnFirstDiff, show
     localLogging = logging
     localLogging.debug('\tcalculating wasted space...')
     localHumanFriendly = humanfriendly
-    for key in knownFiles:
+    for key in knownFiles.keys():
+##        logging.debug("\tknownFiles data example: %s --- %s" % (str(key), str(knownFiles[key])))
         aFile = knownFiles[key][0]
         fileSizeInBytes = getFileSizeFromOS(aFile)
         #localLogging.debug('\t\tgot file size: %i' % fileSizeInBytes)
-        #localLogging.debug('\t\tknownFiles[%s] %s' % (str(key), str(knownFiles[key])))
+        localLogging.debug('\t\tprocessing: %s' % ( str(knownFiles[key])))
         if (len(knownFiles[key]) > 0) or (stopOnFirstDiff):
             if fileSizeInBytes > 0 and not stopOnFirstDiff:
                 wastedSpace += fileSizeInBytes * (len(knownFiles[key])-1)
@@ -328,6 +340,7 @@ def printDuplicateFilesAndReturnWastedSpace(extKnownFiles, stopOnFirstDiff, show
                     #localLogging.debug('\t\twasted space so far: %s' % localHumanFriendly.format_size(wastedSpace))
         #localLogging.debug('\t\twasted space so far: %i' % wastedSpace)
     localLogging.debug('\tcalculated wasted space: %i' % wastedSpace)
+    
     sortedSizeOfKnownFiles = sorted(sizeOfKnownFiles, key=knownFiles.__getitem__)
     sortedListSize = []
     logging.debug('\n\n')
@@ -353,70 +366,17 @@ def printDuplicateFilesAndReturnWastedSpace(extKnownFiles, stopOnFirstDiff, show
         logging.debug("\t\t\t-----------------------")
         #it = sizes.get(size[0])
         #logging.debug("\t\t\t\t\tit is now: %s\n" % str(it))
-##    listSizes = list(sizes.keys())
-##    #logging.debug("listSizes: %s" % str(listSizes))
-##    logging.debug('\n\n')
-##    listSizes.sort()
-##    nList = []
-##    for item in listSizes:
-##        logging.debug("\t\t\t\titem: %s" % str(item))
-####        listSizes[listSizes.index(item)] = [item, [item_name for x in sizes[item] for item_name in x]]
-##        for aNestList in sizes[item]:
-##            try:
-##                nList[nList.index(item)].append(aNestList)
-##            except ValueError:
-##                nList.append(aNestList)
-##    logging.debug('\n\n')
-##    for anItem in nList:
-##        logging.debug("\t\t\t\t\tanItem: %s" % str(anItem))
-##        #works
         
-    sortedListSize.sort()
+##    sortedListSize.sort()
 ##    logging.debug("\t\tdict sizes: ")
-
 ##    for key in sizes.keys():
 ##        logging.debug("\t\t\tkey:%s: sizes[key]: %s" % (str(key), str(sizes[key])))
-
-    logging.debug('\n\n')
-    logging.debug("\t\tsortedListSize has been sort()ed!")
-
-    for item in sortedListSize:
-        logging.debug("\t\t\titem: %s" % str(item))
-    
-
+##    logging.debug('\n\n')
+##    logging.debug("\t\tsortedListSize has been sort()ed!")
 ##    for item in sortedListSize:
-##        a = collections.Counter(sublist[0] for sublist in sortedListSize if sublist[0] == item[0])
-##        countOfSizes = a.get(item[0])
-##        dupIndices =[]
-##        logging.debug("\t\t\tcollections.Counter(sublist[0] for sublist in sortedListSize): %s" % (str(countOfSizes)))
-##        if countOfSizes > 1:
-##            logging.debug("\t\t\t\titem[0] '%s' not unique!" % str(item[0]))
-##            for eachIndex in sortedListSize:
-##                if eachIndex in dupIndices:
-##                    logging.debug("\t\t\t\tremoving sortedListSize[%i]" % sortedListSize.index(eachIndex))
-##                    sortedListSize[sortedListSize.index(eachIndex)] = None
-    ##                else:
-    ####                    try:
-    ##                        #dupIndices.append(sortedListSize[dupIndices[-1]:].index(eachIndex))
-    ##                        #logging.debug("\t\t\t\tappended %s..." % str(dupIndices[-1]))
-    ####                    except IndexError:
-    ##                    dupIndices.append(sortedListSize.index(eachIndex))
-    ##                    logging.debug("\t\t\t\tappended %s..." % str(dupIndices[-1]))
-    ##            duplicateItemIndices = dupIndices
-    ##            #duplicateItemIndices = sortedListSize.index(sublist[0] for sublist in sortedListSize if sublist[0] == item[0])
-    ##            for duplicateItemIndex in duplicateItemIndices:
-    ##                #logging.debug("\t\t\t\t\tchecking %s" % str(duplicateItemIndex))
-    ##                if all([len(sortedListSize[duplicateItemIndex][1]) > len(sortedListSize[aDuplicateItemIndex][1]) for aDuplicateItemIndex in duplicateItemIndices if aDuplicateItemIndex != duplicateItemIndex and sortedListSize[aDuplicateItemIndex] is not None]):
-    ##                    #logging.debug("\t\t\t\t\tremoving duplicates")
-    ##                    #logging.debug("\t\t\t\t\t\t\tduplicateItemIndices: %s" % str(duplicateItemIndices))
-    ##                    #[(logging.debug("\n\t\t\t\t\t\tremoving %s!" % str(aDuplicateItemIndex)), (sortedListSize.__setitem__(aDuplicateItemIndex, ['', [0]]))) for aDuplicateItemIndex in duplicateItemIndices if aDuplicateItemIndex != duplicateItemIndex]
-    ##                    #logging.debug("\t\t\t\t\t\t\tduplicateItemIndices now: %s" % str(duplicateItemIndices))
-    ##        for anIndex in dupIndicies:
-    ##            sortedListSize
-##        else:
-##            pass
+##        logging.debug("\t\t\titem: %s" % str(item))
     newLSizes = []
-    logging.debug("\t\t\tsizes:")
+    #logging.debug("\t\t\tsizes:")
     for aSizeKey in sizes.keys():
         #logging.debug("\t\t\t\t%s"% str(sizes[aSizeKey]) )
         if len(sizes[aSizeKey])>1:
@@ -424,8 +384,18 @@ def printDuplicateFilesAndReturnWastedSpace(extKnownFiles, stopOnFirstDiff, show
     logging.debug('\n\n\n\n')
     localLogging.debug('ready to print list of duplicate files!')
 ##    printListOfDuplicateFiles(sortedListSize, showZeroBytes)
-    printListOfDuplicateFiles(newLSizes, showZeroBytes)
-    return wastedSpace
+    printListOfDuplicateFiles(newLSizes, showZeroBytes, stopOnFirstDiff)
+##HACK
+    if stopOnFirstDiff:
+        hackWastedSpace = 0
+        for item in newLSizes:    
+            fileSizeInBytes = int(item[0])
+            if len(item[1]) > 0:
+                hackWastedSpace += fileSizeInBytes * int(len(item[1]))
+        return hackWastedSpace
+##END HACK
+    else:
+        return wastedSpace
 
 
 def removeDuplicatesForHeuristic(sortedSizes):
