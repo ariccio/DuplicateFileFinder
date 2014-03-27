@@ -126,7 +126,6 @@ class Worker():
         localByteBuffer = bytearray(fSize[0])
         localHashLib = hashlib
         for item in localListOfFileNames:
-            #localListOfHashWorkers.append(hashlib.new('sha1'))
             localDictOfFileHashResults[item] = [localHashLib.new('sha1'), bytearray(fSize[0])]
         fSize[0] = 0
         logging.debug('\tComputing multiple byte arrays: %s' % str(localListOfFileNames))
@@ -138,13 +137,9 @@ class Worker():
                     localDictOfFileHashResults[fileName].append(stack.enter_context(io.open(fileName, 'rb')))
                     keepReading = True
                     localDictOfFileHashResults[fileName].append(keepReading)
-                    #logging.debug('reading %i bytes...' % (int(fSize)*8))
                     localDictOfBytes[fileName] = localDictOfFileHashResults[fileName][2].readinto(localDictOfFileHashResults[fileName][1])
                     logging.debug('\t\tread %i bytes!' % (int(localDictOfBytes[fileName])*8))
                     #localDictOfFileHashResults[key] = [hashlibSHA1, bytearray, fileObject.rb, bool]
-                #logging.debug("\tsum([localDictOfBytes[aFile] for aFile in localDictOfBytes.keys()]): %s" % str(sum([localDictOfBytes[aFile] for aFile in localDictOfBytes.keys()])))
-##                logging.debug("\tany(localDictOfFileHashResults[aSingleFileName][3] for aSingleFileName in localDictOfFileHashResults.keys()) %s\n\n" % str(any(localDictOfFileHashResults[aSingleFileName][3] for aSingleFileName in localDictOfFileHashResults.keys())))
-##                while sum([localDictOfBytes[aFile] for aFile in localDictOfBytes.keys()]) != 0 and any(localDictOfFileHashResults[aSingleFileName][3] for aSingleFileName in localDictOfFileHashResults.keys()):
                 logging.debug("\t\tfSize[-1]: %i" % fSize[-1])
                 logging.debug("\t\tlocalDictOfBytes[fileName]: %i" % localDictOfBytes[fileName])
                 while any(localDictOfFileHashResults[aSingleFileName][3] for aSingleFileName in localDictOfFileHashResults.keys()) and fSize[-1] <= fileSize:
@@ -152,29 +147,11 @@ class Worker():
                     for fileName in localDictOfFileHashResults.keys():
                         logging.debug('\t\t\tworking on %s...' % str(fileName))
                         if localDictOfFileHashResults[fileName][3]:
-                            #localDictOfFileHashResults[fileName][1].clear
-                            #localDictOfFileHashResults[fileName][1] = bytearray(fSize)
-##                            localDictOfFileHashResults[fileName][0].update(localDictOfFileHashResults[fileName][1][:localDictOfBytes[fileName]])
                             logging.debug("\t\t\tfSize[-2]:fSize[-1] %i:%i" % (fSize[-2],fSize[-1]))
                             localDictOfFileHashResults[fileName][0].update(localDictOfFileHashResults[fileName][1][fSize[-2]:fSize[-1]])
-                            #logging.debug('\treading %i bytes...' % (int(fSize)*8))
-                            #localDictOfBytes[fileName] = localDictOfFileHashResults[fileName][2].readinto(localDictOfFileHashResults[fileName][1])
-                            #logging.debug('\tread %i bytes!' % (int(localDictOfBytes[fileName])*8))
-#                    for fileName in localDictOfFileHashResults.keys():
-                        #logging.debug("\t\t\t\tany(localDictOfBytes[aNumRead] > 0 for aNumRead in localDictOfBytes.keys()) %s" % str(any(localDictOfBytes[aNumRead] > 0 for aNumRead in localDictOfBytes.keys())))
-                        #logging.debug("\t\t\t\tlen(localDictOfFileHashResults.keys()) %s" % str(len(localDictOfFileHashResults.keys())))
-                    #if len([key for key in localDictOfFileHashResults.keys()]) >0:
-                        #logging.debug("\t\t\t\tall(blah[fileName][0].hexdigest() ==  blah[aFileName][0].hexdigest() for aFileName in blah.keys() if blah[aFileName]).......................%s" % str(all(localDictOfFileHashResults[fileName][0].hexdigest() == localDictOfFileHashResults[aFileName][0].hexdigest() for aFileName in localDictOfFileHashResults.keys() if localDictOfFileHashResults[aFileName])))
-                        #logging.debug("\t\t\t\tlen([key for key in localDictOfFileHashResults.keys()]).....................................................................................%s" % str(len([key for key in localDictOfFileHashResults.keys()])))
-                        #logging.debug("\t\t\t\t[blah[fileName][0].hexdigest() == blah[aFileName][0].hexdigest() for aFileName in blah.keys() if blah[aFileName] and aFileName !=fileName]: %s" % (str([localDictOfFileHashResults[fileName][0].hexdigest() == localDictOfFileHashResults[aFileName][0].hexdigest() for aFileName in localDictOfFileHashResults.keys() if localDictOfFileHashResults[aFileName] and aFileName !=fileName])))
-                        #logging.debug("\t\t\t\t[blah[fileName][0].hexdigest(), blah[aFileName][0].hexdigest()..............................................................................%s" % (str([(localDictOfFileHashResults[fileName][0].hexdigest(), localDictOfFileHashResults[aFileName][0].hexdigest()) for aFileName in localDictOfFileHashResults.keys() if localDictOfFileHashResults[aFileName] and aFileName !=fileName])))
-                        #logging.debug("\t\t\t\tlocalDictOfFileHashResults[fileName][3]:....................................................................................................%s" % str(localDictOfFileHashResults[fileName][3]))
-                    #if any(localDictOfBytes[aNumRead] > 0 for aNumRead in localDictOfBytes.keys()) and all(localDictOfFileHashResults[fileName][0].hexdigest() == localDictOfFileHashResults[aFileName][0].hexdigest() for aFileName in localDictOfFileHashResults.keys() if localDictOfFileHashResults[aFileName]) and (len([key for key in localDictOfFileHashResults.keys()])>1):
                     if all(localDictOfFileHashResults[fileName][0].hexdigest() == localDictOfFileHashResults[aFileName][0].hexdigest() for aFileName in localDictOfFileHashResults.keys() if localDictOfFileHashResults[aFileName] and aFileName !=fileName):
                         if len(localDictOfFileHashResults.keys())>1:
                             logging.debug('\t\t\t\tall converge\n')
-                            #logging.debug("\t\t\t\tlen(localDictOfFileHashResults.keys())>1 %i" % len(localDictOfFileHashResults.keys()))
-                        #pass
                         else:
                             pass
                             #logging.debug("\t\t\t\tlen([key for key in localDictOfFileHashResults.keys()])NOT>1 %i" % len(localDictOfFileHashResults.keys()))
@@ -616,7 +593,7 @@ def _profile(continuation):
         stats = hotshot.stats.load(prof_file)
     stats.strip_dirs()
     #for a in ['calls', 'cumtime', 'cumulative', 'ncalls', 'time', 'tottime']:
-    for a in ['cumtime', 'cumulative', 'time']:
+    for a in ['cumtime', 'cumulative', 'time', 'ncalls']:
         try:
             stats.sort_stats(a)
             stats.print_stats(150)
