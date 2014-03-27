@@ -238,7 +238,7 @@ def printListOfDuplicateFiles(listOfDuplicateFiles, showZeroBytes):
     if NO_HUMANFRIENDLY is None:
         localLogging.debug('\t\thumanfriendly NOT installed, proceeding with crappy formatting...')
         for item in listOfDuplicateFiles:
-            localLogging.debug("item: %s" % str(item))
+##            localLogging.debug("item: %s" % str(item))
             if item[0] > 0 or showZeroBytes:
                 print("\n%s:" % (str(item[0])))
                 for aFileName in item[1]:
@@ -251,7 +251,7 @@ def printListOfDuplicateFiles(listOfDuplicateFiles, showZeroBytes):
     elif NO_HUMANFRIENDLY is not None:
         localLogging.debug('\t\thumanfriendly IS installed, proceeding with nice formatting...')
         for item in listOfDuplicateFiles:
-            localLogging.debug("\t\t\t\titem: %s" % str(item))
+##            localLogging.debug("\t\t\t\titem: %s" % str(item))
             if item[0] > 0 or showZeroBytes:
                 try:
                     item[0] = humanfriendly.format_size(item[0])
@@ -311,7 +311,7 @@ def printDuplicateFilesAndReturnWastedSpace(extKnownFiles, stopOnFirstDiff, show
             if fileSizeInBytes > 0 and not stopOnFirstDiff:
                 wastedSpace += fileSizeInBytes * (len(knownFiles[key])-1)
                 sizeOfKnownFiles[key] = fileSizeInBytes * (len(knownFiles[key])-1)
-                #localLogging.debug("\n\t\t\tkey:%s:"%key)
+                localLogging.debug("\n\t\t\tkey:%s:"%key)
             elif fileSizeInBytes >0 and stopOnFirstDiff:
                 wastedSpace += fileSizeInBytes * (len(knownFiles[key]))
                 sizeOfKnownFiles[key] = fileSizeInBytes * (len(knownFiles[key]))
@@ -350,6 +350,7 @@ def printDuplicateFilesAndReturnWastedSpace(extKnownFiles, stopOnFirstDiff, show
         logging.debug("\t\t\tsizes:")
         for aSizeKey in sizes.keys():
              logging.debug("\t\t\t\t%s"% str(sizes[aSizeKey]) )
+        logging.debug("\t\t\t-----------------------")
         #it = sizes.get(size[0])
         #logging.debug("\t\t\t\t\tit is now: %s\n" % str(it))
 ##    listSizes = list(sizes.keys())
@@ -418,11 +419,11 @@ def printDuplicateFilesAndReturnWastedSpace(extKnownFiles, stopOnFirstDiff, show
     logging.debug("\t\t\tsizes:")
     for aSizeKey in sizes.keys():
         #logging.debug("\t\t\t\t%s"% str(sizes[aSizeKey]) )
-        newLSizes.append([aSizeKey, sizes[aSizeKey]])
+        if len(sizes[aSizeKey])>1:
+            newLSizes.append([aSizeKey, sizes[aSizeKey]])
     logging.debug('\n\n\n\n')
     localLogging.debug('ready to print list of duplicate files!')
-    printListOfDuplicateFiles(sortedListSize, showZeroBytes)
-    print("\n\n\n\n\n\n\n\n\n\n")
+##    printListOfDuplicateFiles(sortedListSize, showZeroBytes)
     printListOfDuplicateFiles(newLSizes, showZeroBytes)
     return wastedSpace
 
