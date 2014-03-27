@@ -21,6 +21,8 @@ import os
 import hashlib
 import contextlib
 import io
+import itertools
+import collections
 NO_HUMANFRIENDLY = True
 try:
     import humanfriendly
@@ -127,12 +129,12 @@ class Worker():
             #localListOfHashWorkers.append(hashlib.new('sha1'))
             localDictOfFileHashResults[item] = [localHashLib.new('sha1'), bytearray(fSize[0])]
         fSize[0] = 0
-        logging.debug('Computing multiple byte arrays: %s' % str(localListOfFileNames))
-        logging.debug('fSize: %i' % fSize[-1])
+        logging.debug('\tComputing multiple byte arrays: %s' % str(localListOfFileNames))
+        logging.debug('\tfSize: %i' % fSize[-1])
         try:
             with contextlib.ExitStack() as stack:
                 for fileName in localDictOfFileHashResults.keys():
-                    logging.debug('\tworking on %s...' % str(fileName))
+                    logging.debug('\n\t\t\tworking on %s...' % str(fileName))
                     localDictOfFileHashResults[fileName].append(stack.enter_context(io.open(fileName, 'rb')))
                     keepReading = True
                     localDictOfFileHashResults[fileName].append(keepReading)
@@ -141,10 +143,10 @@ class Worker():
                     logging.debug('\t\tread %i bytes!' % (int(localDictOfBytes[fileName])*8))
                     #localDictOfFileHashResults[key] = [hashlibSHA1, bytearray, fileObject.rb, bool]
                 #logging.debug("\tsum([localDictOfBytes[aFile] for aFile in localDictOfBytes.keys()]): %s" % str(sum([localDictOfBytes[aFile] for aFile in localDictOfBytes.keys()])))
-                logging.debug("\tany(localDictOfFileHashResults[aSingleFileName][3] for aSingleFileName in localDictOfFileHashResults.keys()) %s\n\n" % str(any(localDictOfFileHashResults[aSingleFileName][3] for aSingleFileName in localDictOfFileHashResults.keys())))
+##                logging.debug("\tany(localDictOfFileHashResults[aSingleFileName][3] for aSingleFileName in localDictOfFileHashResults.keys()) %s\n\n" % str(any(localDictOfFileHashResults[aSingleFileName][3] for aSingleFileName in localDictOfFileHashResults.keys())))
 ##                while sum([localDictOfBytes[aFile] for aFile in localDictOfBytes.keys()]) != 0 and any(localDictOfFileHashResults[aSingleFileName][3] for aSingleFileName in localDictOfFileHashResults.keys()):
-                logging.debug("\tfSize[-1]: %i" % fSize[-1])
-                logging.debug("\tlocalDictOfBytes[fileName]: %i" % localDictOfBytes[fileName])
+                logging.debug("\t\tfSize[-1]: %i" % fSize[-1])
+                logging.debug("\t\tlocalDictOfBytes[fileName]: %i" % localDictOfBytes[fileName])
                 while any(localDictOfFileHashResults[aSingleFileName][3] for aSingleFileName in localDictOfFileHashResults.keys()) and fSize[-1] <= fileSize:
                     fSize.append(2**iteration)
                     for fileName in localDictOfFileHashResults.keys():
@@ -161,23 +163,25 @@ class Worker():
 #                    for fileName in localDictOfFileHashResults.keys():
                         #logging.debug("\t\t\t\tany(localDictOfBytes[aNumRead] > 0 for aNumRead in localDictOfBytes.keys()) %s" % str(any(localDictOfBytes[aNumRead] > 0 for aNumRead in localDictOfBytes.keys())))
                         #logging.debug("\t\t\t\tlen(localDictOfFileHashResults.keys()) %s" % str(len(localDictOfFileHashResults.keys())))
-                    logging.debug("\t\t\t\tall(blah[fileName][0].hexdigest() ==  blah[aFileName][0].hexdigest() for aFileName in blah.keys() if blah[aFileName]) %s" % str(all(localDictOfFileHashResults[fileName][0].hexdigest() == localDictOfFileHashResults[aFileName][0].hexdigest() for aFileName in localDictOfFileHashResults.keys() if localDictOfFileHashResults[aFileName])))
-                    logging.debug("\t\t\t\tlen([key for key in localDictOfFileHashResults.keys()]) %s" % str(len([key for key in localDictOfFileHashResults.keys()])))
-                    logging.debug("\t\t\t\t[blah[fileName][0].hexdigest() == blah[aFileName][0].hexdigest() for aFileName in blah.keys() if blah[aFileName] and aFileName !=fileName]: %s" % (str([localDictOfFileHashResults[fileName][0].hexdigest() == localDictOfFileHashResults[aFileName][0].hexdigest() for aFileName in localDictOfFileHashResults.keys() if localDictOfFileHashResults[aFileName] and aFileName !=fileName])))
-                    logging.debug("\t\t\t\t[blah[fileName][0].hexdigest(), blah[aFileName][0].hexdigest() %s" % (str([(localDictOfFileHashResults[fileName][0].hexdigest(), localDictOfFileHashResults[aFileName][0].hexdigest()) for aFileName in localDictOfFileHashResults.keys() if localDictOfFileHashResults[aFileName] and aFileName !=fileName])))
-                    logging.debug("\t\t\t\tlocalDictOfFileHashResults[fileName][3]: %s" % str(localDictOfFileHashResults[fileName][3]))
+                    #if len([key for key in localDictOfFileHashResults.keys()]) >0:
+                        #logging.debug("\t\t\t\tall(blah[fileName][0].hexdigest() ==  blah[aFileName][0].hexdigest() for aFileName in blah.keys() if blah[aFileName]).......................%s" % str(all(localDictOfFileHashResults[fileName][0].hexdigest() == localDictOfFileHashResults[aFileName][0].hexdigest() for aFileName in localDictOfFileHashResults.keys() if localDictOfFileHashResults[aFileName])))
+                        #logging.debug("\t\t\t\tlen([key for key in localDictOfFileHashResults.keys()]).....................................................................................%s" % str(len([key for key in localDictOfFileHashResults.keys()])))
+                        #logging.debug("\t\t\t\t[blah[fileName][0].hexdigest() == blah[aFileName][0].hexdigest() for aFileName in blah.keys() if blah[aFileName] and aFileName !=fileName]: %s" % (str([localDictOfFileHashResults[fileName][0].hexdigest() == localDictOfFileHashResults[aFileName][0].hexdigest() for aFileName in localDictOfFileHashResults.keys() if localDictOfFileHashResults[aFileName] and aFileName !=fileName])))
+                        #logging.debug("\t\t\t\t[blah[fileName][0].hexdigest(), blah[aFileName][0].hexdigest()..............................................................................%s" % (str([(localDictOfFileHashResults[fileName][0].hexdigest(), localDictOfFileHashResults[aFileName][0].hexdigest()) for aFileName in localDictOfFileHashResults.keys() if localDictOfFileHashResults[aFileName] and aFileName !=fileName])))
+                        #logging.debug("\t\t\t\tlocalDictOfFileHashResults[fileName][3]:....................................................................................................%s" % str(localDictOfFileHashResults[fileName][3]))
                     #if any(localDictOfBytes[aNumRead] > 0 for aNumRead in localDictOfBytes.keys()) and all(localDictOfFileHashResults[fileName][0].hexdigest() == localDictOfFileHashResults[aFileName][0].hexdigest() for aFileName in localDictOfFileHashResults.keys() if localDictOfFileHashResults[aFileName]) and (len([key for key in localDictOfFileHashResults.keys()])>1):
                     if all(localDictOfFileHashResults[fileName][0].hexdigest() == localDictOfFileHashResults[aFileName][0].hexdigest() for aFileName in localDictOfFileHashResults.keys() if localDictOfFileHashResults[aFileName] and aFileName !=fileName):
                         if len(localDictOfFileHashResults.keys())>1:
                             logging.debug('\t\t\t\tall converge\n')
-                            logging.debug("\t\t\t\tlen(localDictOfFileHashResults.keys())>1 %i" % len(localDictOfFileHashResults.keys()))
+                            #logging.debug("\t\t\t\tlen(localDictOfFileHashResults.keys())>1 %i" % len(localDictOfFileHashResults.keys()))
                         #pass
                         else:
-                            logging.debug("\t\t\t\tlen([key for key in localDictOfFileHashResults.keys()])NOT>1 %i" % len(localDictOfFileHashResults.keys()))
+                            pass
+                            #logging.debug("\t\t\t\tlen([key for key in localDictOfFileHashResults.keys()])NOT>1 %i" % len(localDictOfFileHashResults.keys()))
                     else:
                         logging.debug('\t\t\t\t\t%s diverges!\n' % str(fileName))
                         localDictOfFileHashResults[fileName][3] = False
-                    logging.debug("\t\t\tlocalDictOfFileHashResults[fileName][3] for fileName in keys: %s\n" % str([localDictOfFileHashResults[fileName][3] for fileName in localDictOfFileHashResults.keys()]))
+##                    logging.debug("\t\t\tlocalDictOfFileHashResults[fileName][3] for fileName in keys: %s\n" % str([localDictOfFileHashResults[fileName][3] for fileName in localDictOfFileHashResults.keys()]))
                     iteration += 1
         except PermissionError:
             logging.warning("PermissionError while opening %s" % (str(localFName)))
@@ -247,7 +251,7 @@ def printListOfDuplicateFiles(listOfDuplicateFiles, showZeroBytes):
     elif NO_HUMANFRIENDLY is not None:
         localLogging.debug('\t\thumanfriendly IS installed, proceeding with nice formatting...')
         for item in listOfDuplicateFiles:
-            localLogging.debug("item: %s" % str(item))
+            localLogging.debug("\t\t\t\titem: %s" % str(item))
             if item[0] > 0 or showZeroBytes:
                 try:
                     item[0] = humanfriendly.format_size(item[0])
@@ -257,12 +261,12 @@ def printListOfDuplicateFiles(listOfDuplicateFiles, showZeroBytes):
                         print('\t%s' % (aFileName))
                         #print('\t%s' % (aFileName))
                 except ValueError:
-                    localLogging.warning('\t\tError formatting item for human friendly printing!')
+                    localLogging.warning('\t\tError formatting item %s for human friendly printing!' % str(item[0]))
                     localLogging.debug('\t\t\tItem: "%s" at fault!' % (str(item)))
                     for i in range(len(item)):
                         indent = '\t' * (4 + i)
                         localLogging.debug('%sitem[%i]: %s' % (indent, i, str(item[i])))
-                    sys.exit()
+                    #sys.exit()
                 except UnicodeEncodeError:
                     localLogging.error('\t\tfilename is evil! filename: "%s"' % (str(aFileName)))
                 except:
@@ -302,36 +306,124 @@ def printDuplicateFilesAndReturnWastedSpace(extKnownFiles, stopOnFirstDiff, show
         aFile = knownFiles[key][0]
         fileSizeInBytes = getFileSizeFromOS(aFile)
         #localLogging.debug('\t\tgot file size: %i' % fileSizeInBytes)
-        localLogging.debug('\t\tknownFiles[key] %s' % str(knownFiles[key]))
+        #localLogging.debug('\t\tknownFiles[%s] %s' % (str(key), str(knownFiles[key])))
         if (len(knownFiles[key]) > 0) or (stopOnFirstDiff):
             if fileSizeInBytes > 0 and not stopOnFirstDiff:
                 wastedSpace += fileSizeInBytes * (len(knownFiles[key])-1)
                 sizeOfKnownFiles[key] = fileSizeInBytes * (len(knownFiles[key])-1)
-                localLogging.debug("\n\t\t\tkey:%s:"%key)
+                #localLogging.debug("\n\t\t\tkey:%s:"%key)
             elif fileSizeInBytes >0 and stopOnFirstDiff:
                 wastedSpace += fileSizeInBytes * (len(knownFiles[key]))
                 sizeOfKnownFiles[key] = fileSizeInBytes * (len(knownFiles[key]))
-                localLogging.debug("\n\t\t\tkey:%s:"%key)
+                #localLogging.debug("\n\t\t\tkey:%s:"%key)
             elif fileSizeInBytes == 0:
                 sizeOfKnownFiles[key] = 0
             if NO_HUMANFRIENDLY is None:
                 for aSingleFile in knownFiles[key]:
                     localLogging.debug("\t\t\t%s bytes\t\t\t%s" % (fileSizeInBytes, aSingleFile))
+                    #localLogging.debug('\t\twasted space so far: %i' % wastedSpace)
             elif NO_HUMANFRIENDLY is not None:
                 for aSingleFile in knownFiles[key]:
                     localLogging.debug("\t\t\t%s\t\t\t%s" % (localHumanFriendly.format_size(fileSizeInBytes), aSingleFile))
-        localLogging.debug('\t\twasted space so far: %i' % wastedSpace)
+                    #localLogging.debug('\t\twasted space so far: %s' % localHumanFriendly.format_size(wastedSpace))
+        #localLogging.debug('\t\twasted space so far: %i' % wastedSpace)
     localLogging.debug('\tcalculated wasted space: %i' % wastedSpace)
     sortedSizeOfKnownFiles = sorted(sizeOfKnownFiles, key=knownFiles.__getitem__)
     sortedListSize = []
-
+    logging.debug('\n\n')
     for sortedHash in sortedSizeOfKnownFiles:
+        #logging.debug("\t\t\tfor sortedHash in sortedSizeOfKnownFiles: %s" % str([sizeOfKnownFiles.get(sortedHash), knownFiles.get(sortedHash)]))
         sortedListSize.append([sizeOfKnownFiles.get(sortedHash), knownFiles.get(sortedHash)])
-
+    sizes = {}
+    logging.debug("\t\tsortedListSize: %s" % str(sortedListSize))
+    logging.debug('\n\n')
+    for size in sortedListSize:
+        it = sizes.get(size[0])
+        if it is None:
+            sizes[size[0]] = size[1]
+            #logging.debug("\t\t\tsize[1]: %s" % str(size[1]))
+        else:
+            #logging.debug("\t\t\tit is: %s" % str(it))
+            #logging.debug("\t\t\t\tsizes[%s].append(size[1][0])" % str(size[0]))
+            #logging.debug("\t\t\t\tsize[1][0]: %s" % str(size[1][0]))
+            sizes[size[0]].append(size[1][0])
+        logging.debug("\t\t\tsizes:")
+        for aSizeKey in sizes.keys():
+             logging.debug("\t\t\t\t%s"% str(sizes[aSizeKey]) )
+        #it = sizes.get(size[0])
+        #logging.debug("\t\t\t\t\tit is now: %s\n" % str(it))
+##    listSizes = list(sizes.keys())
+##    #logging.debug("listSizes: %s" % str(listSizes))
+##    logging.debug('\n\n')
+##    listSizes.sort()
+##    nList = []
+##    for item in listSizes:
+##        logging.debug("\t\t\t\titem: %s" % str(item))
+####        listSizes[listSizes.index(item)] = [item, [item_name for x in sizes[item] for item_name in x]]
+##        for aNestList in sizes[item]:
+##            try:
+##                nList[nList.index(item)].append(aNestList)
+##            except ValueError:
+##                nList.append(aNestList)
+##    logging.debug('\n\n')
+##    for anItem in nList:
+##        logging.debug("\t\t\t\t\tanItem: %s" % str(anItem))
+##        #works
+        
     sortedListSize.sort()
+##    logging.debug("\t\tdict sizes: ")
+
+##    for key in sizes.keys():
+##        logging.debug("\t\t\tkey:%s: sizes[key]: %s" % (str(key), str(sizes[key])))
+
+    logging.debug('\n\n')
+    logging.debug("\t\tsortedListSize has been sort()ed!")
+
+    for item in sortedListSize:
+        logging.debug("\t\t\titem: %s" % str(item))
+    
+
+##    for item in sortedListSize:
+##        a = collections.Counter(sublist[0] for sublist in sortedListSize if sublist[0] == item[0])
+##        countOfSizes = a.get(item[0])
+##        dupIndices =[]
+##        logging.debug("\t\t\tcollections.Counter(sublist[0] for sublist in sortedListSize): %s" % (str(countOfSizes)))
+##        if countOfSizes > 1:
+##            logging.debug("\t\t\t\titem[0] '%s' not unique!" % str(item[0]))
+##            for eachIndex in sortedListSize:
+##                if eachIndex in dupIndices:
+##                    logging.debug("\t\t\t\tremoving sortedListSize[%i]" % sortedListSize.index(eachIndex))
+##                    sortedListSize[sortedListSize.index(eachIndex)] = None
+    ##                else:
+    ####                    try:
+    ##                        #dupIndices.append(sortedListSize[dupIndices[-1]:].index(eachIndex))
+    ##                        #logging.debug("\t\t\t\tappended %s..." % str(dupIndices[-1]))
+    ####                    except IndexError:
+    ##                    dupIndices.append(sortedListSize.index(eachIndex))
+    ##                    logging.debug("\t\t\t\tappended %s..." % str(dupIndices[-1]))
+    ##            duplicateItemIndices = dupIndices
+    ##            #duplicateItemIndices = sortedListSize.index(sublist[0] for sublist in sortedListSize if sublist[0] == item[0])
+    ##            for duplicateItemIndex in duplicateItemIndices:
+    ##                #logging.debug("\t\t\t\t\tchecking %s" % str(duplicateItemIndex))
+    ##                if all([len(sortedListSize[duplicateItemIndex][1]) > len(sortedListSize[aDuplicateItemIndex][1]) for aDuplicateItemIndex in duplicateItemIndices if aDuplicateItemIndex != duplicateItemIndex and sortedListSize[aDuplicateItemIndex] is not None]):
+    ##                    #logging.debug("\t\t\t\t\tremoving duplicates")
+    ##                    #logging.debug("\t\t\t\t\t\t\tduplicateItemIndices: %s" % str(duplicateItemIndices))
+    ##                    #[(logging.debug("\n\t\t\t\t\t\tremoving %s!" % str(aDuplicateItemIndex)), (sortedListSize.__setitem__(aDuplicateItemIndex, ['', [0]]))) for aDuplicateItemIndex in duplicateItemIndices if aDuplicateItemIndex != duplicateItemIndex]
+    ##                    #logging.debug("\t\t\t\t\t\t\tduplicateItemIndices now: %s" % str(duplicateItemIndices))
+    ##        for anIndex in dupIndicies:
+    ##            sortedListSize
+##        else:
+##            pass
+    newLSizes = []
+    logging.debug("\t\t\tsizes:")
+    for aSizeKey in sizes.keys():
+        #logging.debug("\t\t\t\t%s"% str(sizes[aSizeKey]) )
+        newLSizes.append([aSizeKey, sizes[aSizeKey]])
+    logging.debug('\n\n\n\n')
     localLogging.debug('ready to print list of duplicate files!')
     printListOfDuplicateFiles(sortedListSize, showZeroBytes)
-
+    print("\n\n\n\n\n\n\n\n\n\n")
+    printListOfDuplicateFiles(newLSizes, showZeroBytes)
     return wastedSpace
 
 
@@ -459,10 +551,12 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes):
                 #each item in sortedSizes should be format: [36, ['C:\\Users\\Alexander Riccio\\Documents\\t.txt']]
                 try:
                     if stopOnFirstDiff:
+                        fileHashHexDict = {}
                         for aFileNameList in sortedSizes:
                             #instead of aFileNameList[0] (which is the size of the file) as the second argument to computMultipleByteArrays, should pass a chunk size!
                             result = aWorker.computeMultipleByteArrays(aFileNameList[1], aFileNameList[0], incremental=True)
                             ##localDictOfFileHashResults[key] = [hashlibSHA1, bytearray, fileObject.rb, bool]
+                            logging.debug("\t\tknown files so far: %s" % str(knownFiles))
                             for aKey in result.keys():
 ##                                if result[aFileName][3]:
 ##                                    it = knownFiles.get(result[aFileName][2])
@@ -470,14 +564,19 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes):
 ##                                        knownFiles[result[aFileName][2]] = [aFileName]
 ##                                    else:
 ##                                        knownFiles[result[aFileName][2]].append(aFileName)
-                                logging.debug("\t\taFileName: %s" % str(aKey))
-                                logging.debug("\t\tresult[aFileName][2] %s" % str(result[aKey][2]))
+##                                getIt = fileHashHexDict.get(result[aKey][0].hexdigest())
+##                                if getIt is None:
+##                                    fileHashHexDict[result[aKey][0].hexdigest()] = [result[aKey][2].name]
+##                                else:
+##                                    fileHashHexDict[result[aKey][0].hexdigest()].append(result[aKey][2].name)
+                                logging.debug("\t\t\taFileName:           %s" % str(aKey))
+                                logging.debug("\t\t\tresult[aFileName][2] %s" % str(result[aKey][2].name))
                                 it = knownFiles.get((result[aKey][2]))
                                 if it is None:
-                                    knownFiles[(result[aKey][2])] = [aKey]
+                                    knownFiles[(result[aKey][2].name)] = [aKey]
                                 else:
-                                    knownFiles[(result[aKey][2])].append(aKey)
-
+                                    knownFiles[(result[aKey][2].name)].append(aKey)
+##                                knownFiles = fileHashHexDict
                     else:
                         for aFileNameList in sortedSizes:
                             for thisHashFileName in aFileNameList[1]:
@@ -527,7 +626,7 @@ def _profile(continuation):
         stats = hotshot.stats.load(prof_file)
     stats.strip_dirs()
     #for a in ['calls', 'cumtime', 'cumulative', 'ncalls', 'time', 'tottime']:
-    for a in ['calls', 'cumtime', 'cumulative', 'time']:
+    for a in ['cumtime', 'cumulative', 'time']:
         try:
             stats.sort_stats(a)
             stats.print_stats(100)
