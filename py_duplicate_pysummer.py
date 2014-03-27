@@ -125,43 +125,45 @@ class Worker():
         localDictOfFileHashResults = {}
         localByteBuffer = bytearray(fSize[0])
         localHashLib = hashlib
+        localLogging = logging
         for item in localListOfFileNames:
             localDictOfFileHashResults[item] = [localHashLib.new('sha1'), bytearray(fSize[0])]
         fSize[0] = 0
-        logging.debug('\tComputing multiple byte arrays: %s' % str(localListOfFileNames))
-        logging.debug('\tfSize: %i' % fSize[-1])
+        #localLogging.debug('\tComputing multiple byte arrays: %s' % str(localListOfFileNames))
+        #localLogging.debug('\tfSize: %i' % fSize[-1])
         try:
             with contextlib.ExitStack() as stack:
                 for fileName in localDictOfFileHashResults.keys():
-                    logging.debug('\n\t\t\tworking on %s...' % str(fileName))
+                    #localLogging.debug('\n\t\t\tworking on %s...' % str(fileName))
                     localDictOfFileHashResults[fileName].append(stack.enter_context(io.open(fileName, 'rb')))
                     keepReading = True
                     localDictOfFileHashResults[fileName].append(keepReading)
                     localDictOfBytes[fileName] = localDictOfFileHashResults[fileName][2].readinto(localDictOfFileHashResults[fileName][1])
-                    logging.debug('\t\tread %i bytes!' % (int(localDictOfBytes[fileName])*8))
+                    #localLogging.debug('\t\tread %i bytes!' % (int(localDictOfBytes[fileName])*8))
                     #localDictOfFileHashResults[key] = [hashlibSHA1, bytearray, fileObject.rb, bool]
-                logging.debug("\t\tfSize[-1]: %i" % fSize[-1])
-                logging.debug("\t\tlocalDictOfBytes[fileName]: %i" % localDictOfBytes[fileName])
+                #localLogging.debug("\t\tfSize[-1]: %i" % fSize[-1])
+                #localLogging.debug("\t\tlocalDictOfBytes[fileName]: %i" % localDictOfBytes[fileName])
                 while any(localDictOfFileHashResults[aSingleFileName][3] for aSingleFileName in localDictOfFileHashResults.keys()) and fSize[-1] <= fileSize:
                     fSize.append(2**iteration)
                     for fileName in localDictOfFileHashResults.keys():
-                        logging.debug('\t\t\tworking on %s...' % str(fileName))
+                        #localLogging.debug('\t\t\tworking on %s...' % str(fileName))
                         if localDictOfFileHashResults[fileName][3]:
-                            logging.debug("\t\t\tfSize[-2]:fSize[-1] %i:%i" % (fSize[-2],fSize[-1]))
+                            #localLogging.debug("\t\t\tfSize[-2]:fSize[-1] %i:%i" % (fSize[-2],fSize[-1]))
                             localDictOfFileHashResults[fileName][0].update(localDictOfFileHashResults[fileName][1][fSize[-2]:fSize[-1]])
                     if all(localDictOfFileHashResults[fileName][0].hexdigest() == localDictOfFileHashResults[aFileName][0].hexdigest() for aFileName in localDictOfFileHashResults.keys() if localDictOfFileHashResults[aFileName] and aFileName !=fileName):
                         if len(localDictOfFileHashResults.keys())>1:
-                            logging.debug('\t\t\t\tall converge\n')
+                            pass
+                            #localLogging.debug('\t\t\t\tall converge\n')
                         else:
                             pass
                             #logging.debug("\t\t\t\tlen([key for key in localDictOfFileHashResults.keys()])NOT>1 %i" % len(localDictOfFileHashResults.keys()))
                     else:
-                        logging.debug('\t\t\t\t\t%s diverges!\n' % str(fileName))
+                        #localLogging.debug('\t\t\t\t\t%s diverges!\n' % str(fileName))
                         localDictOfFileHashResults[fileName][3] = False
 ##                    logging.debug("\t\t\tlocalDictOfFileHashResults[fileName][3] for fileName in keys: %s\n" % str([localDictOfFileHashResults[fileName][3] for fileName in localDictOfFileHashResults.keys()]))
                     iteration += 1
         except PermissionError:
-            logging.warning("PermissionError while opening %s" % (str(localFName)))
+            localLogging.warning("PermissionError while opening %s" % (str(localFName)))
         #returnResult[fileName] = [_hashlib.HASH, someByteArray, hexdigest, didReadEntireFile]
         #return returnResult
         return localDictOfFileHashResults
@@ -185,10 +187,13 @@ def getFileSizeFromOS(theFileInQuestion):
     '''
     localLogging = logging
     localOS = os
+    localInt = int
+    localWindowsError = WindowsError
+    localStr
     try:
-        fileSizeInBytes = int(localOS.stat(theFileInQuestion).st_size)
+        fileSizeInBytes = localInt(localOS.stat(theFileInQuestion).st_size)
 
-    except WindowsError as winErr:
+    except localWindowsError as winErr:
         #logging.warning('Windows error %s while getting size of "%s" in printDuplicateFilesAndReturnWastedSpace!\n\tMay god have mercy on your soul.\n\n' % ( str(winErr.errno), str(theFileInQuestion)))
         if winErr.errno == 1920:
             if localOS.path.islink(theFileInQuestion):
@@ -199,7 +204,7 @@ def getFileSizeFromOS(theFileInQuestion):
             localLogging.warning('Windows could not find %s, and thereby failed to find the size of said file.' % (theFileInQuestion))
             fileSizeInBytes = 0
         else:
-            localLogging.warning('Windows error %s while getting size of "%s"!\n\tMay god have mercy on your soul.\n\n' % (str(winErr.errno), theFileInQuestion))
+            localLogging.warning('Windows error %s while getting size of "%s"!\n\tMay god have mercy on your soul.\n\n' % (localStr(winErr.errno), theFileInQuestion))
             fileSizeInBytes = 0
         #fileSizeInBytes = 0
     return fileSizeInBytes
@@ -213,26 +218,32 @@ def printListOfDuplicateFiles(extlistOfDuplicateFiles, showZeroBytes, stopOnFirs
     listOfDuplicateFiles = extlistOfDuplicateFiles
     localLogging = logging
     localLogging.debug('\tprinting list of duplicate files!')
+    localPrint = print
+    localLen = len
+    localStr = str
+    localUnicodeEncodeError = UnicodeEncodeError
+    localValueError = ValueError
+    localRange = range
     if NO_HUMANFRIENDLY is None:
         localLogging.debug('\t\thumanfriendly NOT installed, proceeding with crappy formatting...')
         for item in listOfDuplicateFiles:
 ##            localLogging.debug("item: %s" % str(item))
             if item[0] > 0 or showZeroBytes:
-                if stopOnFirstDiff and len(item[1])>1:
-                    print("\n%s:" % (str(item[0])))
+                if stopOnFirstDiff and localLen(item[1])>1:
+                    localPrint("\n%s:" % (localStr(item[0])))
                     for aFileName in item[1]:
                         try:
                             #print("\t%s" % (str(aFileName)))
-                            print("\t%s" % (aFileName))
-                        except UnicodeEncodeError:
+                            localPrint("\t%s" % (aFileName))
+                        except localUnicodeEncodeError:
                             localLogging.warning("\t\t\tfilename is evil! filename: ", aFileName)                
                 elif not stopOnFirstDiff:
-                    print("\n%s:" % (str(item[0])))
+                    localPrint("\n%s:" % (localStr(item[0])))
                     for aFileName in item[1]:
                         try:
                             #print("\t%s" % (str(aFileName)))
-                            print("\t%s" % (aFileName))
-                        except UnicodeEncodeError:
+                            localPrint("\t%s" % (aFileName))
+                        except localUnicodeEncodeError:
                             localLogging.warning("\t\t\tfilename is evil! filename: ", aFileName)
 
     elif NO_HUMANFRIENDLY is not None:
@@ -244,26 +255,26 @@ def printListOfDuplicateFiles(extlistOfDuplicateFiles, showZeroBytes, stopOnFirs
                     item.append(humanfriendly.format_size(item[0]))
                     #↑that is a HACK, to fix the weirdness of python's pass-by-assignment nature
                     #print('\n%s:' % (str(item[0])))
-                    print('\n%s:' % (item[2]))
+                    localPrint('\n%s:' % (item[2]))
                     for aFileName in item[1]:
-                        print('\t%s' % (aFileName))
+                        localPrint('\t%s' % (aFileName))
                         #print('\t%s' % (aFileName))
-                except ValueError:
-                    localLogging.warning('\t\tError formatting item %s for human friendly printing!' % str(item[2]))
-                    localLogging.debug('\t\t\tItem: "%s" at fault!' % (str(item)))
-                    for i in range(len(item)):
+                except localValueError:
+                    localLogging.warning('\t\tError formatting item %s for human friendly printing!' % localStr(item[2]))
+                    localLogging.debug('\t\t\tItem: "%s" at fault!' % (localStr(item)))
+                    for i in localRange(localLen(item)):
                         indent = '\t' * (4 + i)
-                        localLogging.debug('%sitem[%i]: %s' % (indent, i, str(item[i])))
+                        localLogging.debug('%sitem[%i]: %s' % (indent, i, localStr(item[i])))
                     #sys.exit()
-                except UnicodeEncodeError:
-                    localLogging.error('\t\tfilename is evil! filename: "%s"' % (str(aFileName)))
+                except localUnicodeEncodeError:
+                    localLogging.error('\t\tfilename is evil! filename: "%s"' % (localStr(aFileName)))
                 except:
-                    print('---------------------------------------------------------------------')
+                    localPrint('---------------------------------------------------------------------')
                     localLogging.fatal('SOMETHING IS VERY WRONG!')
                     sys.exc_info()
-                    print("faulting item: ", item)
+                    localPrint("faulting item: ", item)
                     sys.exit(666)
-                    print('---------------------------------------------------------------------')
+                    localPrint('---------------------------------------------------------------------')
     else:
         localLogging.error('Something is VERY wrong in printListOfDuplicateFiles')
 
@@ -290,45 +301,56 @@ def printDuplicateFilesAndReturnWastedSpace(extKnownFiles, stopOnFirstDiff, show
     sizeOfKnownFiles = {}
     knownFiles = extKnownFiles
     localLogging = logging
-    localLogging.debug('\tcalculating wasted space...')
+    #localLogging.debug('\tcalculating wasted space...')
     localHumanFriendly = humanfriendly
+    localLen = len
+    localValueError = ValueError
+    localIndexError = IndexError
+    localAll = all
+    localSorted = sorted
+    localGetFileSizeFromOS = getFileSizeFromOS
+    local_NO_HUMANFRIENDLY = NO_HUMANFRIENDLY
+    localInt = int
     for key in knownFiles.keys():
 ##        logging.debug("\tknownFiles data example: %s --- %s" % (str(key), str(knownFiles[key])))
         aFile = knownFiles[key][0]
-        fileSizeInBytes = getFileSizeFromOS(aFile)
+        lenKnownFilesKey = localLen(knownFiles[key])
+        fileSizeInBytes = localGetFileSizeFromOS(aFile)
         #localLogging.debug('\t\tgot file size: %i' % fileSizeInBytes)
-        localLogging.debug('\t\tprocessing: %s' % ( str(knownFiles[key])))
-        if (len(knownFiles[key]) > 0) or (stopOnFirstDiff):
+        #localLogging.debug('\t\tprocessing: %s' % ( str(knownFiles[key])))
+        if (lenKnownFilesKey > 0) or (stopOnFirstDiff):
             if fileSizeInBytes > 0 and not stopOnFirstDiff:
-                wastedSpace += fileSizeInBytes * (len(knownFiles[key])-1)
-                sizeOfKnownFiles[key] = fileSizeInBytes * (len(knownFiles[key])-1)
-                localLogging.debug("\n\t\t\tkey:%s:"%key)
+                wastedSpace += fileSizeInBytes * (lenKnownFilesKey-1)
+                sizeOfKnownFiles[key] = fileSizeInBytes * (lenKnownFilesKey-1)
+                #localLogging.debug("\n\t\t\tkey:%s:"%key)
             elif fileSizeInBytes >0 and stopOnFirstDiff:
-                wastedSpace += fileSizeInBytes * (len(knownFiles[key]))
-                sizeOfKnownFiles[key] = fileSizeInBytes * (len(knownFiles[key]))
+                wastedSpace += fileSizeInBytes * (lenKnownFilesKey)
+                sizeOfKnownFiles[key] = fileSizeInBytes * (lenKnownFilesKey)
                 #localLogging.debug("\n\t\t\tkey:%s:"%key)
             elif fileSizeInBytes == 0:
                 sizeOfKnownFiles[key] = 0
-            if NO_HUMANFRIENDLY is None:
-                for aSingleFile in knownFiles[key]:
-                    localLogging.debug("\t\t\t%s bytes\t\t\t%s" % (fileSizeInBytes, aSingleFile))
+            if local_NO_HUMANFRIENDLY is None:
+                pass
+                #for aSingleFile in knownFiles[key]:
+                    #localLogging.debug("\t\t\t%s bytes\t\t\t%s" % (fileSizeInBytes, aSingleFile))
                     #localLogging.debug('\t\twasted space so far: %i' % wastedSpace)
-            elif NO_HUMANFRIENDLY is not None:
-                for aSingleFile in knownFiles[key]:
-                    localLogging.debug("\t\t\t%s\t\t\t%s" % (localHumanFriendly.format_size(fileSizeInBytes), aSingleFile))
+            elif local_NO_HUMANFRIENDLY is not None:
+                pass
+                #for aSingleFile in knownFiles[key]:
+                    #localLogging.debug("\t\t\t%s\t\t\t%s" % (localHumanFriendly.format_size(fileSizeInBytes), aSingleFile))
                     #localLogging.debug('\t\twasted space so far: %s' % localHumanFriendly.format_size(wastedSpace))
         #localLogging.debug('\t\twasted space so far: %i' % wastedSpace)
-    localLogging.debug('\tcalculated wasted space: %i' % wastedSpace)
+    #localLogging.debug('\tcalculated wasted space: %i' % wastedSpace)
     
-    sortedSizeOfKnownFiles = sorted(sizeOfKnownFiles, key=knownFiles.__getitem__)
+    sortedSizeOfKnownFiles = localSorted(sizeOfKnownFiles, key=knownFiles.__getitem__)
     sortedListSize = []
-    logging.debug('\n\n')
+    #logging.debug('\n\n')
     for sortedHash in sortedSizeOfKnownFiles:
         #logging.debug("\t\t\tfor sortedHash in sortedSizeOfKnownFiles: %s" % str([sizeOfKnownFiles.get(sortedHash), knownFiles.get(sortedHash)]))
         sortedListSize.append([sizeOfKnownFiles.get(sortedHash), knownFiles.get(sortedHash)])
     sizes = {}
-    logging.debug("\t\tsortedListSize: %s" % str(sortedListSize))
-    logging.debug('\n\n')
+    #logging.debug("\t\tsortedListSize: %s" % str(sortedListSize))
+    #logging.debug('\n\n')
     for size in sortedListSize:
         it = sizes.get(size[0])
         if it is None:
@@ -339,10 +361,10 @@ def printDuplicateFilesAndReturnWastedSpace(extKnownFiles, stopOnFirstDiff, show
             #logging.debug("\t\t\t\tsizes[%s].append(size[1][0])" % str(size[0]))
             #logging.debug("\t\t\t\tsize[1][0]: %s" % str(size[1][0]))
             sizes[size[0]].append(size[1][0])
-        logging.debug("\t\t\tsizes:")
-        for aSizeKey in sizes.keys():
-             logging.debug("\t\t\t\t%s"% str(sizes[aSizeKey]) )
-        logging.debug("\t\t\t-----------------------")
+        #logging.debug("\t\t\tsizes:")
+        #for aSizeKey in sizes.keys():
+             #logging.debug("\t\t\t\t%s"% str(sizes[aSizeKey]) )
+        #logging.debug("\t\t\t-----------------------")
         #it = sizes.get(size[0])
         #logging.debug("\t\t\t\t\tit is now: %s\n" % str(it))
         
@@ -358,24 +380,30 @@ def printDuplicateFilesAndReturnWastedSpace(extKnownFiles, stopOnFirstDiff, show
     #logging.debug("\t\t\tsizes:")
     for aSizeKey in sizes.keys():
         #logging.debug("\t\t\t\t%s"% str(sizes[aSizeKey]) )
-        if len(sizes[aSizeKey])>1:
+        if localLen(sizes[aSizeKey])>1:
             newLSizes.append([aSizeKey, sizes[aSizeKey]])
-    logging.debug('\n\n\n\n')
-    localLogging.debug('ready to print list of duplicate files!')
+    #localLogging.debug('\n\n\n\n')
+    #localLogging.debug('ready to print list of duplicate files!')
 ##UNPYTHONIC
     iterator = 0
-    while not all(newLSizes[newLSizes.index(itera)+1] > newLSizes[newLSizes.index(itera)] for itera in newLSizes if itera != newLSizes[-1]):
+    lastKnownSortedIndex = 0
+    while not localAll(newLSizes[newLSizes.index(itera)+1] > newLSizes[newLSizes.index(itera)] for itera in newLSizes[lastKnownSortedIndex:] if itera != newLSizes[-1]):#hotspot
         iterator = 0
-        while iterator < len(newLSizes)-1:
+        lenNewLSizes = localLen(newLSizes)
+        while iterator < lenNewLSizes-1:
             try:
                 if newLSizes[iterator+1] < newLSizes[iterator]:
                     try:
                         popped = newLSizes.pop(iterator)
                         newLSizes.insert(iterator+1, popped)
-                    except ValueError:
-                        print('valueerror')
-            except IndexError:
-                print("IndexError ", iterator)
+                    except localValueError:
+                        pass
+                        #localLogging.debug('valueerror')
+                else:
+                    lastKnownSortedIndex +=1
+            except localIndexError:
+                pass
+                #localLogging.debug("IndexError ", iterator)
             iterator+=1
 ##ENDUNPYTHONIC
     
@@ -385,9 +413,9 @@ def printDuplicateFilesAndReturnWastedSpace(extKnownFiles, stopOnFirstDiff, show
     if stopOnFirstDiff:
         hackWastedSpace = 0
         for item in newLSizes:    
-            fileSizeInBytes = int(item[0])
-            if len(item[1]) > 0:
-                hackWastedSpace += fileSizeInBytes * int(len(item[1]))
+            fileSizeInBytes = localInt(item[0])
+            if localLen(item[1]) > 0:
+                hackWastedSpace += fileSizeInBytes * localInt(localLen(item[1]))
         return hackWastedSpace
 ##END HACK
     else:
@@ -396,14 +424,17 @@ def printDuplicateFilesAndReturnWastedSpace(extKnownFiles, stopOnFirstDiff, show
 
 def removeDuplicatesForHeuristic(sortedSizes):
     localLogging = logging
+    localLen = len
+    localStr = str
+    localTypeError = TypeError
     for size in sortedSizes:
         #size should be format: [36, ['C:\\Users\\Alexander Riccio\\Documents\\t.txt']]
         try:
-            if len(size[1]) < 2:
+            if localLen(size[1]) < 2:
                 #localLogging.debug('\t\tremoving sub-two element (%s[1]) list...\n' % (str(size[1])))
                 sortedSizes.remove(size)
-        except TypeError:
-            localLogging.error('\t\titem "%s" is neither a sequence nor a mapping!' % (str(size)))
+        except localTypeError:
+            localLogging.error('\t\titem "%s" is neither a sequence nor a mapping!' % (localStr(size)))
             sys.exit()
     return sortedSizes
 
@@ -445,6 +476,7 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes):
         fileSizeList = []
         fileSizeDict = {}
         knownFiles = {}
+        localKeyboardInterrupt = KeyboardInterrupt
 
         if os.path.isfile(arg0):
             logging.debug('%s is a file!' % (str(arg0)))
@@ -500,7 +532,7 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes):
                             fileHashes.append(nextHash)
                             nextHash = out_q.get()
                     logging.debug('\tComputation complete!')
-                except KeyboardInterrupt:
+                except localKeyboardInterrupt:
                     sys.exit()
 
                 for (fileFullPath, fileHashHex) in fileHashes:
@@ -510,7 +542,7 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes):
                             knownFiles[fileHashHex] = [fileFullPath]
                         else:
                             knownFiles[fileHashHex].append(fileFullPath)
-                    except KeyboardInterrupt:
+                    except localKeyboardInterrupt:
                         sys.exit()
 
             elif heuristic is not None:
@@ -523,7 +555,7 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes):
                             #instead of aFileNameList[0] (which is the size of the file) as the second argument to computMultipleByteArrays, should pass a chunk size!
                             result = aWorker.computeMultipleByteArrays(aFileNameList[1], aFileNameList[0], incremental=True)
                             ##localDictOfFileHashResults[key] = [hashlibSHA1, bytearray, fileObject.rb, bool]
-                            logging.debug("\t\tknown files so far: %s" % str(knownFiles))
+                            #logging.debug("\t\tknown files so far: %s" % str(knownFiles))
                             for aKey in result.keys():
 ##                                if result[aFileName][3]:
 ##                                    it = knownFiles.get(result[aFileName][2])
@@ -536,8 +568,8 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes):
 ##                                    fileHashHexDict[result[aKey][0].hexdigest()] = [result[aKey][2].name]
 ##                                else:
 ##                                    fileHashHexDict[result[aKey][0].hexdigest()].append(result[aKey][2].name)
-                                logging.debug("\t\t\taFileName:           %s" % str(aKey))
-                                logging.debug("\t\t\tresult[aFileName][2] %s" % str(result[aKey][2].name))
+                                #logging.debug("\t\t\taFileName:           %s" % str(aKey))
+                                #logging.debug("\t\t\tresult[aFileName][2] %s" % str(result[aKey][2].name))
                                 it = knownFiles.get((result[aKey][2]))
                                 if it is None:
                                     knownFiles[(result[aKey][2].name)] = [aKey]
@@ -557,12 +589,12 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes):
                                     knownFiles[fileHashHex] = [fileFullPath]
                                 else:
                                     knownFiles[fileHashHex].append(fileFullPath)
-                            except KeyboardInterrupt:
+                            except localKeyboardInterrupt:
                                 sys.exit()
 
                                 
                     logging.debug('\tComputation complete!')
-                except KeyboardInterrupt:
+                except localKeyboardInterrupt:
                     sys.exit()
 
         else:
@@ -593,12 +625,12 @@ def _profile(continuation):
         stats = hotshot.stats.load(prof_file)
     stats.strip_dirs()
     #for a in ['calls', 'cumtime', 'cumulative', 'ncalls', 'time', 'tottime']:
-    for a in ['cumtime', 'cumulative', 'time', 'ncalls']:
+    for a in ['cumtime', 'time', 'ncalls']:
         try:
             stats.sort_stats(a)
             stats.print_stats(150)
             stats.print_callees(150)
-            #stats.print_callers(10)
+            stats.print_callers(150)
         except KeyError:
             pass
     os.remove(prof_file)
