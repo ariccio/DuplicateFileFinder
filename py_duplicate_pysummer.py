@@ -35,17 +35,16 @@ import os
 import hashlib
 import contextlib
 import io
-import itertools
-import collections
+#import itertools
+#import collections
 NO_HUMANFRIENDLY = True
 try:
     import humanfriendly
 except ImportError:
     print('Install "human friendly" with "pip install humansize" for human-readable file sizes')
     NO_HUMANFRIENDLY = None
-# TODO : replace optparse with argparse : will brake compatibility with Python < 2.7
 
-import optparse
+#import optparse
 import argparse
 #version = '1.0'
 
@@ -73,6 +72,7 @@ class Worker():
             self.__name = "worker-%s" % self.__hashname
 
     def compute(self, fname, incremental=None):
+        #this is depreciated, will be removed!
         '''
         calculates the hash (with algorithm self.__hashname) of fname and returns a 2-item tuple: (fname, a hexdigest of the hash)
         '''
@@ -111,7 +111,7 @@ class Worker():
         return (self.__fname, self.__hashdata.hexdigest())
 
     def computeByteArray(self, fname, fSize, incremental=None):
-        #TODO: eliminate function call overhead associated with calling computeByteArray for EVERY goddamned file!
+        #this is depreciated, will be removed!
         localFName = fname
         localByteBuffer = bytearray(fSize)
         localHashdata = hashlib.new('sha1')
@@ -134,10 +134,10 @@ class Worker():
         iteration = 0
         #logging.debug('computeMultipleByteArrays')
         localListOfFileNames = listOfFileNames
-        localDictOfFileHandles = {}
+        #localDictOfFileHandles = {}
         localDictOfBytes = {}
         localDictOfFileHashResults = {}
-        localByteBuffer = bytearray(fSize[0])
+        #localByteBuffer = bytearray(fSize[0])
         localHashLib = hashlib
         localLogging = logging
         localLen = len
@@ -156,7 +156,7 @@ class Worker():
             except localMemoryError:
                 logging.error("Your computer probably just got really slow! That was my fault. Sorry!")
                 logging.error("File %s was just TOO big" % localStr(item))
-                
+
         fSize[0] = 0
         #localLogging.debug('\tComputing multiple byte arrays: %s' % str(localListOfFileNames))
         #localLogging.debug('\tfSize: %i' % fSize[-1])
@@ -165,7 +165,6 @@ class Worker():
                 for fileName in localDictOfFileHashResults.keys():
                     #localLogging.debug('\n\t\t\tworking on %s...' % str(fileName))
                     localDictOfFileHashResults[fileName].append(stack.enter_context(localIO.open(fileName, 'rb')))
-                    #I once got "OSError: [Errno 24] Too many open files: 'C:\\Users\\Alexander Riccio\\Documents\\GitHub\\kivy\\.git\\refs\\remotes\\origin\\pr\\774'" here. I have no idea either.
                     keepReading = True
                     localDictOfFileHashResults[fileName].append(keepReading)
                     localDictOfBytes[fileName] = localDictOfFileHashResults[fileName][2].readinto(localDictOfFileHashResults[fileName][1])
@@ -180,8 +179,8 @@ class Worker():
                         if localDictOfFileHashResults[fileName][3]:
                             #localLogging.debug("\t\t\tfSize[-2]:fSize[-1] %i:%i" % (fSize[-2],fSize[-1]))
                             localDictOfFileHashResults[fileName][0].update(localDictOfFileHashResults[fileName][1][fSize[-2]:fSize[-1]])
-                    if localAll(localDictOfFileHashResults[fileName][0].hexdigest() == localDictOfFileHashResults[aFileName][0].hexdigest() for aFileName in localDictOfFileHashResults.keys() if localDictOfFileHashResults[aFileName] and aFileName !=fileName):
-                        if localLen(localDictOfFileHashResults.keys())>1:
+                    if localAll(localDictOfFileHashResults[fileName][0].hexdigest() == localDictOfFileHashResults[aFileName][0].hexdigest() for aFileName in localDictOfFileHashResults.keys() if localDictOfFileHashResults[aFileName] and aFileName != fileName):
+                        if localLen(localDictOfFileHashResults.keys()) > 1:
                             pass
                             #localLogging.debug('\t\t\t\tall converge\n')
                         else:
@@ -200,9 +199,7 @@ class Worker():
             sys.exc_info()
             print("Exception: %s" % str(e))
             print(sys.exc_info())
-            sys.exit("whoops!")
-        #returnResult[fileName] = [_hashlib.HASH, someByteArray, hexdigest, didReadEntireFile]
-        #return returnResult
+            sys.exit(666)
         return localDictOfFileHashResults
 
 def getFileSizeFromOS(theFileInQuestion):
@@ -281,14 +278,14 @@ def printListOfDuplicateFiles(extlistOfDuplicateFiles, showZeroBytes, stopOnFirs
         for item in listOfDuplicateFiles:
 ##            localLogging.debug("item: %s" % str(item))
             if item[0] > 0 or showZeroBytes:
-                if stopOnFirstDiff and localLen(item[1])>1:
+                if stopOnFirstDiff and localLen(item[1]) > 1:
                     localPrint("\n%s:" % (localStr(item[0])))
                     for aFileName in item[1]:
                         try:
                             #print("\t%s" % (str(aFileName)))
                             localPrint("\t%s" % (aFileName))
                         except localUnicodeEncodeError:
-                            localLoggingWarning("\t\t\tfilename is evil! filename: ", aFileName)                
+                            localLoggingWarning("\t\t\tfilename is evil! filename: ", aFileName)
                 elif not stopOnFirstDiff:
                     localPrint("\n%s:" % (localStr(item[0])))
                     for aFileName in item[1]:
@@ -301,16 +298,13 @@ def printListOfDuplicateFiles(extlistOfDuplicateFiles, showZeroBytes, stopOnFirs
     elif NO_HUMANFRIENDLY is not None:
         localLoggingDebug('\t\thumanfriendly IS installed, proceeding with nice formatting...')
         for item in listOfDuplicateFiles:
-##            localLogging.debug("\t\t\t\titem: %s" % str(item))
             if item[0] > 0 or showZeroBytes:
                 try:
                     item.append(humanfriendly_format_size(item[0]))
                     #↑that is a HACK, to fix the weirdness of python's pass-by-assignment nature
-                    #print('\n%s:' % (str(item[0])))
                     localPrint('\n%s:' % (item[2]))
                     for aFileName in item[1]:
                         localPrint('\t%s' % (aFileName))
-                        #print('\t%s' % (aFileName))
                 except localValueError:
                     localLoggingWarning('\t\tError formatting item %s for human friendly printing!' % localStr(item[2]))
                     localLoggingDebug('\t\t\tItem: "%s" at fault!' % (localStr(item)))
@@ -329,7 +323,7 @@ def printListOfDuplicateFiles(extlistOfDuplicateFiles, showZeroBytes, stopOnFirs
                     localPrint('---------------------------------------------------------------------')
     else:
         localLogging.error('Something is VERY wrong in printListOfDuplicateFiles')
-
+        sys.exit(666)
 
 def printDuplicateFilesAndReturnWastedSpace(extKnownFiles, stopOnFirstDiff, showZeroBytes):
     '''
@@ -347,7 +341,7 @@ def printDuplicateFilesAndReturnWastedSpace(extKnownFiles, stopOnFirstDiff, show
     If you have humanfriendly ("humansize") installed, the output will be more readable - i.e. 1 KB, not 1024.
     I also increment a counter, wastedSpace, by filesize over each file.
 
-    ALOT happens in this function - AND it is performance critical - so it's huge
+    ALOT happens in this function - AND it is performance critical that we make as few function calls as possible - so it's huge
     '''
     wastedSpace = 0
     sizeOfKnownFiles = {}
@@ -375,7 +369,7 @@ def printDuplicateFilesAndReturnWastedSpace(extKnownFiles, stopOnFirstDiff, show
                 wastedSpace += fileSizeInBytes * (lenKnownFilesKey-1)
                 sizeOfKnownFiles[key] = fileSizeInBytes * (lenKnownFilesKey-1)
                 #localLogging.debug("\n\t\t\tkey:%s:"%key)
-            elif fileSizeInBytes >0 and stopOnFirstDiff:
+            elif fileSizeInBytes > 0 and stopOnFirstDiff:
                 wastedSpace += fileSizeInBytes * (lenKnownFilesKey)
                 sizeOfKnownFiles[key] = fileSizeInBytes * (lenKnownFilesKey)
                 #localLogging.debug("\n\t\t\tkey:%s:"%key)
@@ -393,7 +387,7 @@ def printDuplicateFilesAndReturnWastedSpace(extKnownFiles, stopOnFirstDiff, show
                     #localLogging.debug('\t\twasted space so far: %s' % localHumanFriendly.format_size(wastedSpace))
         #localLogging.debug('\t\twasted space so far: %i' % wastedSpace)
     #localLogging.debug('\tcalculated wasted space: %i' % wastedSpace)
-    
+
     sortedSizeOfKnownFiles = localSorted(sizeOfKnownFiles, key=knownFiles.__getitem__)
     sortedListSize = []
     #logging.debug('\n\n')
@@ -413,26 +407,11 @@ def printDuplicateFilesAndReturnWastedSpace(extKnownFiles, stopOnFirstDiff, show
             #logging.debug("\t\t\t\tsizes[%s].append(size[1][0])" % str(size[0]))
             #logging.debug("\t\t\t\tsize[1][0]: %s" % str(size[1][0]))
             sizes[size[0]].append(size[1][0])
-        #logging.debug("\t\t\tsizes:")
-        #for aSizeKey in sizes.keys():
-             #logging.debug("\t\t\t\t%s"% str(sizes[aSizeKey]) )
-        #logging.debug("\t\t\t-----------------------")
-        #it = sizes.get(size[0])
-        #logging.debug("\t\t\t\t\tit is now: %s\n" % str(it))
-        
-##    sortedListSize.sort()
-##    logging.debug("\t\tdict sizes: ")
-##    for key in sizes.keys():
-##        logging.debug("\t\t\tkey:%s: sizes[key]: %s" % (str(key), str(sizes[key])))
-##    logging.debug('\n\n')
-##    logging.debug("\t\tsortedListSize has been sort()ed!")
-##    for item in sortedListSize:
-##        logging.debug("\t\t\titem: %s" % str(item))
     newLSizes = []
     #logging.debug("\t\t\tsizes:")
     for aSizeKey in sizes.keys():
         #logging.debug("\t\t\t\t%s"% str(sizes[aSizeKey]) )
-        if localLen(sizes[aSizeKey])>1:
+        if localLen(sizes[aSizeKey]) > 1:
             newLSizes.append([aSizeKey, sizes[aSizeKey]])
     #localLogging.debug('\n\n\n\n')
     #localLogging.debug('ready to print list of duplicate files!')
@@ -453,22 +432,23 @@ def printDuplicateFilesAndReturnWastedSpace(extKnownFiles, stopOnFirstDiff, show
                         pass
                         #localLogging.debug('valueerror')
                 else:
-                    lastKnownSortedIndex +=1
+                    lastKnownSortedIndex += 1
             except localIndexError:
                 pass
                 #localLogging.debug("IndexError ", iterator)
-            iterator+=1
+            iterator += 1
 ##ENDUNPYTHONIC
-    
+
 ##    printListOfDuplicateFiles(sortedListSize, showZeroBytes)
     printListOfDuplicateFiles(newLSizes, showZeroBytes, stopOnFirstDiff)
 ##HACK
     if stopOnFirstDiff:
         hackWastedSpace = 0
-        for item in newLSizes:    
+        for item in newLSizes:
             fileSizeInBytes = localInt(item[0])
-            if localLen(item[1]) > 0:
-                hackWastedSpace += fileSizeInBytes * localInt(localLen(item[1]))
+            itemOneLen = localLen(item[1])
+            if itemOneLen > 0:
+                hackWastedSpace += fileSizeInBytes * localInt(itemOneLen)
         return hackWastedSpace
 ##END HACK
     else:
@@ -476,6 +456,9 @@ def printDuplicateFilesAndReturnWastedSpace(extKnownFiles, stopOnFirstDiff, show
 
 
 def removeDuplicatesForHeuristic(sortedSizes):
+    '''
+    This name is very misleading. We're removing NON-duplicates!
+    '''
     #localLogging = logging
     localLen = len
     localStr = str
@@ -544,11 +527,8 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes):
         localSum = sum
         if os.path.isfile(arg0):
             logging.debug('%s is a file!' % (localStr(arg0)))
-            w = Worker(algorithm)
-            hw = w.compute(arg0)
-            localPrint("%s *%s" % (hw, arg0))
-            knownFiles[hw] = arg0
-
+            logging.error("There are no duplicates in a single file! Duh.")
+            sys.exit(-1)
         elif os.path.isdir(arg0):
             logging.debug('%s is a directory!!' % (localStr(arg0)))
             fileList = walkDirAndReturnListOfFiles(arg0)
@@ -583,6 +563,7 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes):
             aWorker = Worker(algorithm)
             logging.debug('Starting computation!')
             if heuristic is None:
+                #this is depreciated, will be removed!
                 logging.debug('\tNOT computing with heuristic!')
                 try:
                     for sortedSizeAndPaths in sortedSizes:
@@ -614,11 +595,10 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes):
                 #each item in sortedSizes should be format: [36, ['C:\\Users\\Alexander Riccio\\Documents\\t.txt']]
                 try:
                     if stopOnFirstDiff:
-                        fileHashHexDict = {}
                         for aFileNameList in sortedSizes:
                             #instead of aFileNameList[0] (which is the size of the file) as the second argument to computMultipleByteArrays, should pass a chunk size!
                             #logging.debug("\t\tcomputing file of size %i" % aFileNameList[0])
-                            numberOfFilesOfSize =  len(aFileNameList[1])
+                            numberOfFilesOfSize = len(aFileNameList[1])
                             #if there are more than 512 files of size aFileNameList[0], we need to increase the number of files that we can open!
                             if numberOfFilesOfSize > 512:
                                 #There is NO platform-independent way of doing this!
@@ -627,9 +607,6 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes):
                                     if numberOfFilesOfSize < 2049:
                                         logging.warning("\tThere are so many (%i) files of size %i that we need to increase the number of files that we can open at once! To do this, we need to import ctypes and call _setmaxstdio in the MSVCRT library. THIS WILL BE SLOW!" % (len(aFileNameList[1]), aFileNameList[0]))
                                         import ctypes
-                                        #from ctypes.util import find_msvcrt as find_microsoft_visual_c_runtime
-                                        #microsoftVisualCRuntimeLibraryName = find_microsoft_visual_c_runtime()
-                                        #microsoftVisualCRuntimeLibraryName = ctypes.util.find_msvcrt()
                                         if sys.version_info.major < 3:
                                             #python 2.6 -> 3.2 link against msvcr90
                                             if sys.version_info.minor > 5:
@@ -652,7 +629,6 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes):
                                         else:
                                             logging.error("I have no idea what Python 4+ will link against!")
                                             sys.exit("You are from the future. I can't support you.")
-                                        #newMax = ctypes.cdll.msvcr100._setmaxstdio(2048)
                                         if newMax != 2048:
                                             logging.fatal("Failed to increase number of files openable at once! Got return value: %s" % str(newMax))
                                             sys.exit("_setmaxstdio failed!")
@@ -661,23 +637,11 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes):
                                         sys.exit("TOO MANY FILES!")
                                 else:
                                     if numberOfFilesOfSize > 1024:
-                                        logging.fatal("There are too many files of size %i! You'd need to increase the unix per-process limit; support for doing this automatically isn't available at this time" % len(aFileNameList[0]))
+                                        logging.fatal("There are too many files of size %i! You'd need to increase the unix per-process limit; support for doing this automatically isn't available at this time" % aFileNameList[0])
                                         sys.exit("TOO MANY FILES!")
                             result = aWorker.computeMultipleByteArrays(aFileNameList[1], aFileNameList[0], incremental=True)
-                            ##localDictOfFileHashResults[key] = [hashlibSHA1, bytearray, fileObject.rb, bool]
                             #logging.debug("\t\tknown files so far: %s" % str(knownFiles))
                             for aKey in result.keys():
-##                                if result[aFileName][3]:
-##                                    it = knownFiles.get(result[aFileName][2])
-##                                    if it is None:
-##                                        knownFiles[result[aFileName][2]] = [aFileName]
-##                                    else:
-##                                        knownFiles[result[aFileName][2]].append(aFileName)
-##                                getIt = fileHashHexDict.get(result[aKey][0].hexdigest())
-##                                if getIt is None:
-##                                    fileHashHexDict[result[aKey][0].hexdigest()] = [result[aKey][2].name]
-##                                else:
-##                                    fileHashHexDict[result[aKey][0].hexdigest()].append(result[aKey][2].name)
                                 #logging.debug("\t\t\taFileName:           %s" % str(aKey))
                                 #logging.debug("\t\t\tresult[aFileName][2] %s" % str(result[aKey][2].name))
                                 try:
@@ -691,10 +655,10 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes):
                                     pass
 ##                                knownFiles = fileHashHexDict
                     else:
+                        #this is depreciated, will be removed!
                         for aFileNameList in sortedSizes:
                             for thisHashFileName in aFileNameList[1]:
                                 result = aWorker.computeByteArray(thisHashFileName, aFileNameList[0], incremental=True)
-                                #maybe pass the size of file into computeByteArray, to then read that size file?
                                 fileHashes.append(result)
                         for (fileFullPath, fileHashHex) in fileHashes:
                             try:
@@ -706,7 +670,7 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes):
                             except localKeyboardInterrupt:
                                 sys.exit()
 
-                                
+
                     logging.debug('\tComputation complete!')
                 except localKeyboardInterrupt:
                     sys.exit()
@@ -740,6 +704,7 @@ def _profile(continuation):
     stats.strip_dirs()
     #for a in ['calls', 'cumtime', 'cumulative', 'ncalls', 'time', 'tottime']:
     for a in ['cumtime', 'time', 'ncalls']:
+        print("------------------------------------------------------------------------------------------------------------------------------")
         try:
             stats.sort_stats(a)
             stats.print_stats(150)
@@ -752,8 +717,6 @@ def _profile(continuation):
 
 
 def main():
-    usage = "usage: %prog [options] arg"
-    #parser = optparse.OptionParser(usage=usage)
     parser = argparse.ArgumentParser(prog='Duplicate File Finder')
     parser.add_argument("--hash", dest="hashname", default="auto", help="select hash algorithm")
     parser.add_argument("--heuristic", dest="heuristic", default=True, help="Attempt to hash ONLY files that may be duplicates. ON by default")
@@ -763,26 +726,25 @@ def main():
     parser.add_argument("--showZeroByteFiles", action='store_true', dest='showZeroBytes', default=False, help="shows files of size 0")
     parser.add_argument("--stfu", "--beQuiet", action='store_true', dest='stfu', default=False, help="Whine about 'warning's less")
     parser.add_argument("directory", action='store', help='directory to scan')
-    #parser.add_option("--callGraph", action='store_true', dest='callGraph', default=False, help="PyCallGraph")
-    #logger = logging.getLogger('log')
+    parser.add_argument("--halt", action='store_true', dest='halting', default=False, help="Used to study module imports") 
     #logging.basicConfig(level=logging.DEBUG)
     args = parser.parse_args()
 
-    #debugging = options.isDebugMode
+    if args.halting:
+        print("halt!")
+        sys.exit(0)
     if args.stfu and args.isDebugMode:
         print("Do you want me to shut up or log everything?!?! Make up your mind!")
         sys.exit("Choose one!")
     elif args.stfu:
         logging.basicConfig(level=logging.ERROR)
     elif args.isDebugMode:
-        print("Debugging, yo")
         logging.basicConfig(level=logging.DEBUG)
-        #logger.setLevel(logging.DEBUG)
         logging.debug('debug mode set!')
     else:
         logging.basicConfig(level=logging.WARNING)
         logging.debug('not debugging! If you see this, something is wrong.')
-        
+
     if args.hashname == "auto":
         args.hashname = "sha1"
         logging.debug("'auto' as hash selected, so defaulting to 'sha1'\n")
