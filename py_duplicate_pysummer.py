@@ -45,8 +45,8 @@ except ImportError:
     NO_HUMANFRIENDLY = None
 # TODO : replace optparse with argparse : will brake compatibility with Python < 2.7
 
-from optparse import OptionParser
-
+import optparse
+import argparse
 #version = '1.0'
 
 
@@ -532,7 +532,7 @@ def walkDirAndReturnListOfFiles(directoryToWalk):
 
 def main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes):
     if args:
-        arg0 = args[0]
+        arg0 = args.directory
         fileSizeList = []
         fileSizeDict = {}
         knownFiles = {}
@@ -753,26 +753,28 @@ def _profile(continuation):
 
 def main():
     usage = "usage: %prog [options] arg"
-    parser = OptionParser(usage=usage)
-    parser.add_option("--hash", dest="hashname", default="auto", help="select hash algorithm")
-    parser.add_option("--heuristic", dest="heuristic", default=True, help="Attempt to hash ONLY files that may be duplicates. ON by default")
-    parser.add_option("--debug", action='store_true', dest="isDebugMode", default=False, help="For the curious ;)")
-    parser.add_option('--profile', action='store_true', dest='profile', default=False, help="for the hackers")
-    parser.add_option("--stopFirstDiff", action='store_true', dest='stopOnFirstDiff', default=True, help="stops reading at first chunk that diverges. ON by default.")
-    parser.add_option("--showZeroByteFiles", action='store_true', dest='showZeroBytes', default=False, help="shows files of size 0")
-    parser.add_option("--stfu", "--beQuiet", action='store_true', dest='stfu', default=False, help="Whine about 'warning's less")
+    #parser = optparse.OptionParser(usage=usage)
+    parser = argparse.ArgumentParser(prog='Duplicate File Finder')
+    parser.add_argument("--hash", dest="hashname", default="auto", help="select hash algorithm")
+    parser.add_argument("--heuristic", dest="heuristic", default=True, help="Attempt to hash ONLY files that may be duplicates. ON by default")
+    parser.add_argument("--debug", action='store_true', dest="isDebugMode", default=False, help="For the curious ;)")
+    parser.add_argument('--profile', action='store_true', dest='profile', default=False, help="for the hackers")
+    parser.add_argument("--stopFirstDiff", action='store_true', dest='stopOnFirstDiff', default=True, help="stops reading at first chunk that diverges. ON by default.")
+    parser.add_argument("--showZeroByteFiles", action='store_true', dest='showZeroBytes', default=False, help="shows files of size 0")
+    parser.add_argument("--stfu", "--beQuiet", action='store_true', dest='stfu', default=False, help="Whine about 'warning's less")
+    parser.add_argument("directory", action='store', help='directory to scan')
     #parser.add_option("--callGraph", action='store_true', dest='callGraph', default=False, help="PyCallGraph")
     #logger = logging.getLogger('log')
     #logging.basicConfig(level=logging.DEBUG)
-    (options, args) = parser.parse_args()
+    args = parser.parse_args()
 
     #debugging = options.isDebugMode
-    if options.stfu and options.isDebugMode:
+    if args.stfu and args.isDebugMode:
         print("Do you want me to shut up or log everything?!?! Make up your mind!")
         sys.exit("Choose one!")
-    elif options.stfu:
+    elif args.stfu:
         logging.basicConfig(level=logging.ERROR)
-    elif options.isDebugMode:
+    elif args.isDebugMode:
         print("Debugging, yo")
         logging.basicConfig(level=logging.DEBUG)
         #logger.setLevel(logging.DEBUG)
@@ -781,15 +783,15 @@ def main():
         logging.basicConfig(level=logging.WARNING)
         logging.debug('not debugging! If you see this, something is wrong.')
         
-    if options.hashname == "auto":
-        options.hashname = "sha1"
+    if args.hashname == "auto":
+        args.hashname = "sha1"
         logging.debug("'auto' as hash selected, so defaulting to 'sha1'\n")
     logging.info("This is a VERY I/O heavy program. You may want to temporarily exclude %s from anti-malware/anti-virus monitoring, especially for Microsoft Security Essentials/Windows Defender. That said, I've never seen Malwarebytes Anti-Malware have a performance impact; leave MBAM as it is." % (str(sys.executable)))
-    heuristic = options.heuristic
-    algorithm = options.hashname
-    showZeroBytes = options.showZeroBytes
-    stopOnFirstDiff = options.stopOnFirstDiff
-    if options.profile:
+    heuristic = args.heuristic
+    algorithm = args.hashname
+    showZeroBytes = args.showZeroBytes
+    stopOnFirstDiff = args.stopOnFirstDiff
+    if args.profile:
         def safe_main():
             try:
                 main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes)
