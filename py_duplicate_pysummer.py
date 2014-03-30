@@ -622,7 +622,7 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes):
                                 if ('win32' or 'win64') in sys.platform:
                                     #The Microsoft Visual C runtime library WILL NOT let us open more than 2048 files at a time!
                                     if numberOfFilesOfSize < 2049:
-                                        logging.warning("\tThere are so many (%i) files of size %i that we need to increase the number of files that we can open at once! To do this, we need to import ctypes and call _setmaxstdio in the MSVCRT library. THIS WILL BE SLOW!" % (len(aFileNameList[1], aFileNameList[0]))
+                                        logging.warning("\tThere are so many (%i) files of size %i that we need to increase the number of files that we can open at once! To do this, we need to import ctypes and call _setmaxstdio in the MSVCRT library. THIS WILL BE SLOW!" % (len(aFileNameList[1]), aFileNameList[0]))
                                         import ctypes
                                         #from ctypes.util import find_msvcrt as find_microsoft_visual_c_runtime
                                         #microsoftVisualCRuntimeLibraryName = find_microsoft_visual_c_runtime()
