@@ -134,9 +134,11 @@ class Worker():
         localIO = io
         localMemoryError = MemoryError
         localStr = str
+        localHashLibNew = localHashLib.new
+        contextLibExitStack = contextlib.ExitStack
         for item in localListOfFileNames:
             try:
-                localDictOfFileHashResults[item] = [localHashLib.new('sha1'), localBytearray(fSize[0])]
+                localDictOfFileHashResults[item] = [localHashLibNew('sha1'), localBytearray(fSize[0])]
             except localMemoryError:
                 logging.error("Your computer probably just got really slow! That was my fault. Sorry!")
                 logging.error("File %s was just TOO big" % localStr(item))
@@ -145,7 +147,7 @@ class Worker():
         #localLogging.debug('\tComputing multiple byte arrays: %s' % str(localListOfFileNames))
         #localLogging.debug('\tfSize: %i' % fSize[-1])
         try:
-            with contextlib.ExitStack() as stack:
+            with contextLibExitStack() as stack:
                 for fileName in localDictOfFileHashResults.keys():
                     #localLogging.debug('\n\t\t\tworking on %s...' % str(fileName))
                     localDictOfFileHashResults[fileName].append(stack.enter_context(localIO.open(fileName, 'rb')))
@@ -199,25 +201,30 @@ def getFileSizeFromOS(theFileInQuestion):
 
     '''
     localLogging = logging
+    localLoggingWarning = localLogging.warning
     localOS = os
     localInt = int
     localWindowsError = WindowsError
     localStr = str
+    localOSstat = localOS.stat
+    localOSPath = localOS.path
+    localOSPath_islink = localOSPath.islink
+    #localOSPath_getSize = localOSPath.getSize
     try:
-        fileSizeInBytes = localInt(localOS.stat(theFileInQuestion).st_size)
+        fileSizeInBytes = localInt(localOSstat(theFileInQuestion).st_size)
 
     except localWindowsError as winErr:
         #logging.warning('Windows error %s while getting size of "%s" in printDuplicateFilesAndReturnWastedSpace!\n\tMay god have mercy on your soul.\n\n' % ( str(winErr.errno), str(theFileInQuestion)))
         if winErr.errno == 1920:
-            if localOS.path.islink(theFileInQuestion):
+            if localOSPath_islink(theFileInQuestion):
                 fileSizeInBytes = localOS.path.getSize(theFileInQuestion)
             else:
                 fileSizeInBytes = 0
         elif winErr.errno == 2:
-            localLogging.warning('Windows could not find %s, and thereby failed to find the size of said file.' % (theFileInQuestion))
+            localLoggingWarning('Windows could not find %s, and thereby failed to find the size of said file.' % (theFileInQuestion))
             fileSizeInBytes = 0
         else:
-            localLogging.warning('Windows error %s while getting size of "%s"!\n\tMay god have mercy on your soul.\n\n' % (localStr(winErr.errno), theFileInQuestion))
+            localLoggingWarning('Windows error %s while getting size of "%s"!\n\tMay god have mercy on your soul.\n\n' % (localStr(winErr.errno), theFileInQuestion))
             fileSizeInBytes = 0
         #fileSizeInBytes = 0
     return fileSizeInBytes
@@ -237,8 +244,12 @@ def printListOfDuplicateFiles(extlistOfDuplicateFiles, showZeroBytes, stopOnFirs
     localUnicodeEncodeError = UnicodeEncodeError
     localValueError = ValueError
     localRange = range
+    localLoggingDebug = localLogging.debug
+    localLoggingWarning = localLogging.warning
+    localLoggingError = localLogging.error
+    humanfriendly_format_size = humanfriendly.format_size
     if NO_HUMANFRIENDLY is None:
-        localLogging.debug('\t\thumanfriendly NOT installed, proceeding with crappy formatting...')
+        localLoggingDebug('\t\thumanfriendly NOT installed, proceeding with crappy formatting...')
         for item in listOfDuplicateFiles:
 ##            localLogging.debug("item: %s" % str(item))
             if item[0] > 0 or showZeroBytes:
@@ -249,7 +260,7 @@ def printListOfDuplicateFiles(extlistOfDuplicateFiles, showZeroBytes, stopOnFirs
                             #print("\t%s" % (str(aFileName)))
                             localPrint("\t%s" % (aFileName))
                         except localUnicodeEncodeError:
-                            localLogging.warning("\t\t\tfilename is evil! filename: ", aFileName)                
+                            localLoggingWarning("\t\t\tfilename is evil! filename: ", aFileName)                
                 elif not stopOnFirstDiff:
                     localPrint("\n%s:" % (localStr(item[0])))
                     for aFileName in item[1]:
@@ -257,15 +268,15 @@ def printListOfDuplicateFiles(extlistOfDuplicateFiles, showZeroBytes, stopOnFirs
                             #print("\t%s" % (str(aFileName)))
                             localPrint("\t%s" % (aFileName))
                         except localUnicodeEncodeError:
-                            localLogging.warning("\t\t\tfilename is evil! filename: ", aFileName)
+                            localLoggingWarning("\t\t\tfilename is evil! filename: ", aFileName)
 
     elif NO_HUMANFRIENDLY is not None:
-        localLogging.debug('\t\thumanfriendly IS installed, proceeding with nice formatting...')
+        localLoggingDebug('\t\thumanfriendly IS installed, proceeding with nice formatting...')
         for item in listOfDuplicateFiles:
 ##            localLogging.debug("\t\t\t\titem: %s" % str(item))
             if item[0] > 0 or showZeroBytes:
                 try:
-                    item.append(humanfriendly.format_size(item[0]))
+                    item.append(humanfriendly_format_size(item[0]))
                     #↑that is a HACK, to fix the weirdness of python's pass-by-assignment nature
                     #print('\n%s:' % (str(item[0])))
                     localPrint('\n%s:' % (item[2]))
@@ -273,14 +284,14 @@ def printListOfDuplicateFiles(extlistOfDuplicateFiles, showZeroBytes, stopOnFirs
                         localPrint('\t%s' % (aFileName))
                         #print('\t%s' % (aFileName))
                 except localValueError:
-                    localLogging.warning('\t\tError formatting item %s for human friendly printing!' % localStr(item[2]))
-                    localLogging.debug('\t\t\tItem: "%s" at fault!' % (localStr(item)))
+                    localLoggingWarning('\t\tError formatting item %s for human friendly printing!' % localStr(item[2]))
+                    localLoggingDebug('\t\t\tItem: "%s" at fault!' % (localStr(item)))
                     for i in localRange(localLen(item)):
                         indent = '\t' * (4 + i)
-                        localLogging.debug('%sitem[%i]: %s' % (indent, i, localStr(item[i])))
+                        localLoggingDebug('%sitem[%i]: %s' % (indent, i, localStr(item[i])))
                     #sys.exit()
                 except localUnicodeEncodeError:
-                    localLogging.error('\t\tfilename is evil! filename: "%s"' % (localStr(aFileName)))
+                    localLoggingError('\t\tfilename is evil! filename: "%s"' % (localStr(aFileName)))
                 except:
                     localPrint('---------------------------------------------------------------------')
                     localLogging.fatal('SOMETHING IS VERY WRONG!')
@@ -436,19 +447,21 @@ def printDuplicateFilesAndReturnWastedSpace(extKnownFiles, stopOnFirstDiff, show
 
 
 def removeDuplicatesForHeuristic(sortedSizes):
-    localLogging = logging
+    #localLogging = logging
     localLen = len
     localStr = str
     localTypeError = TypeError
+    localSys = sys
+    sortedSizesRemove = sortedSizes.remove
     for size in sortedSizes:
         #size should be format: [36, ['C:\\Users\\Alexander Riccio\\Documents\\t.txt']]
         try:
             if localLen(size[1]) < 2:
                 #localLogging.debug('\t\tremoving sub-two element (%s[1]) list...\n' % (str(size[1])))
-                sortedSizes.remove(size)
+                sortedSizesRemove(size)
         except localTypeError:
-            localLogging.error('\t\titem "%s" is neither a sequence nor a mapping!' % (localStr(size)))
-            sys.exit()
+            #localLogging.error('\t\titem "%s" is neither a sequence nor a mapping!' % (localStr(size)))
+            localSys.exit()
     return sortedSizes
 
 def walkDirAndReturnQueueOfFiles(directoryToWalk):
@@ -471,15 +484,19 @@ def walkDirAndReturnQueueOfFiles(directoryToWalk):
 def walkDirAndReturnListOfFiles(directoryToWalk):
     ListOfFiles = []
     localOS = os
+    localOSWalk = localOS.walk
+    localOSPath = localOS.path
+    localOSPath_abspath = localOSPath.abspath
+    localOSPath_join = localOSPath.join
     #logging.debug('Walking %s...' % (str(directoryToWalk)))
-    for root, dirs, files in localOS.walk(directoryToWalk):
+    for root, dirs, files in localOSWalk(directoryToWalk):
         '''move to:
             build queue of files -> build pool of processes -> start processes
             like I did in factah over summer, where mp_factorizer is passed nums(a list of numbers to factorize) and a number nprocs (how many processes)
 
         '''
         for fname in files:
-            fullpath = localOS.path.abspath(localOS.path.join(root, fname))
+            fullpath = localOSPath_abspath(localOSPath_join(root, fname))
             ListOfFiles.append(fullpath)
     return ListOfFiles
 
@@ -668,6 +685,7 @@ def main():
     parser.add_option('--profile', action='store_true', dest='profile', default=False, help="for the hackers")
     parser.add_option("--stopFirstDiff", action='store_true', dest='stopOnFirstDiff', default=True, help="stops reading at first chunk that diverges. ON by default.")
     parser.add_option("--showZeroByteFiles", action='store_true', dest='showZeroBytes', default=False, help="shows files of size 0")
+    parser.add_option("--callGraph", action='store_true', dest='callGraph', default=False, help="PyCallGraph")
     logger = logging.getLogger('log')
     #logging.basicConfig(level=logging.DEBUG)
     logging.warning("This is a VERY I/O heavy program. You may want to temporairily[TODO: sp?] exclude %s from anti-malware/anti-virus monitoring, especially for Microsoft Security Essentials/Windows Defender. That said, I've never seen Malwarebytes Anti-Malware have a performance impact; leave MBAM as it is." % (str(sys.executable)))
