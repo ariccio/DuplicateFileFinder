@@ -13,6 +13,7 @@ if sys.version_info[0] < 3:
 #support for python 2.7 and 3
 if sys.version_info.major < 3:
     import Queue as queue
+    print("I've given up activley supporting python 2.x, so best of luck to you!")
 elif sys.version_info.major > 2:
     import queue
 
@@ -151,6 +152,7 @@ class Worker():
                 for fileName in localDictOfFileHashResults.keys():
                     #localLogging.debug('\n\t\t\tworking on %s...' % str(fileName))
                     localDictOfFileHashResults[fileName].append(stack.enter_context(localIO.open(fileName, 'rb')))
+                    #I once got "OSError: [Errno 24] Too many open files: 'C:\\Users\\Alexander Riccio\\Documents\\GitHub\\kivy\\.git\\refs\\remotes\\origin\\pr\\774'" here. I have no idea either.
                     keepReading = True
                     localDictOfFileHashResults[fileName].append(keepReading)
                     localDictOfBytes[fileName] = localDictOfFileHashResults[fileName][2].readinto(localDictOfFileHashResults[fileName][1])
