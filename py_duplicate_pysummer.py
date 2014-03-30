@@ -195,9 +195,11 @@ class Worker():
             #localLogging.debug("\tLeft context!")
         except localPermissionError:
             localLogging.warning("PermissionError while opening %s" % ('a file'))#TODO: fix
-        except:
+        except Exception as e:
             localLogging.fatal("Some strange error ocurred, try running again.")
-            localLogging.fatal(sys.exc_info())
+            sys.exc_info()
+            print("Exception: %s" % str(e))
+            print(sys.exc_info())
             sys.exit("whoops!")
         #returnResult[fileName] = [_hashlib.HASH, someByteArray, hexdigest, didReadEntireFile]
         #return returnResult
@@ -438,6 +440,7 @@ def printDuplicateFilesAndReturnWastedSpace(extKnownFiles, stopOnFirstDiff, show
     iterator = 0
     lastKnownSortedIndex = 0
     while not localAll(newLSizes[newLSizes.index(itera)+1] > newLSizes[newLSizes.index(itera)] for itera in newLSizes[lastKnownSortedIndex:] if itera != newLSizes[-1]):#hotspot
+        #even with this ugliness, order is a bit borked!
         iterator = 0
         lenNewLSizes = localLen(newLSizes)
         while iterator < lenNewLSizes-1:
@@ -757,15 +760,20 @@ def main():
     parser.add_option('--profile', action='store_true', dest='profile', default=False, help="for the hackers")
     parser.add_option("--stopFirstDiff", action='store_true', dest='stopOnFirstDiff', default=True, help="stops reading at first chunk that diverges. ON by default.")
     parser.add_option("--showZeroByteFiles", action='store_true', dest='showZeroBytes', default=False, help="shows files of size 0")
-    parser.add_option("--callGraph", action='store_true', dest='callGraph', default=False, help="PyCallGraph")
-    logger = logging.getLogger('log')
-    logging.basicConfig(level=logging.DEBUG)
-    logging.info("This is a VERY I/O heavy program. You may want to temporarily exclude %s from anti-malware/anti-virus monitoring, especially for Microsoft Security Essentials/Windows Defender. That said, I've never seen Malwarebytes Anti-Malware have a performance impact; leave MBAM as it is." % (str(sys.executable)))
+    parser.add_option("--stfu", "--beQuiet", action='store_true', dest='stfu', default=False, help="Whine about 'warning's less")
+    #parser.add_option("--callGraph", action='store_true', dest='callGraph', default=False, help="PyCallGraph")
+    #logger = logging.getLogger('log')
+    #logging.basicConfig(level=logging.DEBUG)
     (options, args) = parser.parse_args()
 
     #debugging = options.isDebugMode
-    
-    if options.isDebugMode:
+    if options.stfu and options.isDebugMode:
+        print("Do you want me to shut up or log everything?!?! Make up your mind!")
+        sys.exit("Choose one!")
+    elif options.stfu:
+        logging.basicConfig(level=logging.ERROR)
+    elif options.isDebugMode:
+        print("Debugging, yo")
         logging.basicConfig(level=logging.DEBUG)
         #logger.setLevel(logging.DEBUG)
         logging.debug('debug mode set!')
@@ -775,8 +783,8 @@ def main():
         
     if options.hashname == "auto":
         options.hashname = "sha1"
-        logging.warning("'auto' as hash selected, so defaulting to 'sha1'\n")
-
+        logging.debug("'auto' as hash selected, so defaulting to 'sha1'\n")
+    logging.info("This is a VERY I/O heavy program. You may want to temporarily exclude %s from anti-malware/anti-virus monitoring, especially for Microsoft Security Essentials/Windows Defender. That said, I've never seen Malwarebytes Anti-Malware have a performance impact; leave MBAM as it is." % (str(sys.executable)))
     heuristic = options.heuristic
     algorithm = options.hashname
     showZeroBytes = options.showZeroBytes
