@@ -4,6 +4,19 @@
 Based DISTANTLY on code by JEANNENOT Stephane
 
 idea: for possibly duplicate files, read a block at position 2^(number of iterations)
+
+Windows throws MANY errors. List of Python supported errors here: http://bugs.python.org/file7326/winerror.py
+List of ALL errors here: http://msdn.microsoft.com/en-us/library/ms681381(v=vs.85).aspx
+Alternate lists:
+    http://www.mathemainzel.info/files/w32errcodes.html
+    http://user.tninet.se/~tdf275m/wincode2.htm
+    http://www.briandunning.com/error-codes/?source=Windows
+    http://www.madanmohan.com/p/codes.html
+    http://march-hare.com/puuu/doc/Winerror.h
+List of errors supported by Java (sort of like a mirror):
+    https://java.net/projects/jna/sources/svn/content/trunk/jnalib/contrib/platform/src/com/sun/jna/platform/win32/W32Errors.java?rev=1187
+Humorous error lists:
+    http://www.testingcircus.com/tastro-2014-testers-astrology/
 '''
 from __future__ import print_function
 import sys
@@ -179,8 +192,13 @@ class Worker():
                         localDictOfFileHashResults[fileName][3] = False
 ##                    logging.debug("\t\t\tlocalDictOfFileHashResults[fileName][3] for fileName in keys: %s\n" % str([localDictOfFileHashResults[fileName][3] for fileName in localDictOfFileHashResults.keys()]))
                     iteration += 1
+            #localLogging.debug("\tLeft context!")
         except localPermissionError:
             localLogging.warning("PermissionError while opening %s" % ('a file'))#TODO: fix
+        except:
+            localLogging.fatal("Some strange error ocurred, try running again.")
+            localLogging.fatal(sys.exc_info())
+            sys.exit("whoops!")
         #returnResult[fileName] = [_hashlib.HASH, someByteArray, hexdigest, didReadEntireFile]
         #return returnResult
         return localDictOfFileHashResults
@@ -224,6 +242,12 @@ def getFileSizeFromOS(theFileInQuestion):
                 fileSizeInBytes = 0
         elif winErr.errno == 2:
             localLoggingWarning('Windows could not find %s, and thereby failed to find the size of said file.' % (theFileInQuestion))
+            fileSizeInBytes = 0
+        elif winErr.errno == 22:
+            localLoggingWarning("Windows threw error 22 while getting the size of %s - error 22 means 'ERROR_BAD_COMMAND', and ERROR_BAD_COMMAND means 'The device does not recognize the command.' It doesn't make sense to me either." % (theFileInQuestion))
+            fileSizeInBytes = 0
+        elif winErr.errno == 13:
+            localLoggingWarning("Windows threw error 13 while getting the size of %s - error 13 means 'ERROR_INVALID_DATA', and ERROR_INVALID_DATA means 'The data is invalid.' It doesn't make sense to me either." % (theFileInQuestion))
             fileSizeInBytes = 0
         else:
             localLoggingWarning('Windows error %s while getting size of "%s"!\n\tMay god have mercy on your soul.\n\n' % (localStr(winErr.errno), theFileInQuestion))
@@ -590,6 +614,52 @@ def main_method(heuristic, algorithm, stopOnFirstDiff, args, showZeroBytes):
                         fileHashHexDict = {}
                         for aFileNameList in sortedSizes:
                             #instead of aFileNameList[0] (which is the size of the file) as the second argument to computMultipleByteArrays, should pass a chunk size!
+                            #logging.debug("\t\tcomputing file of size %i" % aFileNameList[0])
+                            numberOfFilesOfSize =  len(aFileNameList[1])
+                            #if there are more than 512 files of size aFileNameList[0], we need to increase the number of files that we can open!
+                            if numberOfFilesOfSize > 512:
+                                #There is NO platform-independent way of doing this!
+                                if ('win32' or 'win64') in sys.platform:
+                                    #The Microsoft Visual C runtime library WILL NOT let us open more than 2048 files at a time!
+                                    if numberOfFilesOfSize < 2049:
+                                        logging.warning("\tThere are so many (%i) files of size %i that we need to increase the number of files that we can open at once! To do this, we need to import ctypes and call _setmaxstdio in the MSVCRT library. THIS WILL BE SLOW!" % (len(aFileNameList[1], aFileNameList[0]))
+                                        import ctypes
+                                        #from ctypes.util import find_msvcrt as find_microsoft_visual_c_runtime
+                                        #microsoftVisualCRuntimeLibraryName = find_microsoft_visual_c_runtime()
+                                        #microsoftVisualCRuntimeLibraryName = ctypes.util.find_msvcrt()
+                                        if sys.version_info.major < 3:
+                                            #python 2.6 -> 3.2 link against msvcr90
+                                            if sys.version_info.minor > 5:
+                                                logging.debug("Name of microsoftVisualCRuntimeLibrary: msvcr90")
+                                                newMax = ctypes.cdll.msvcr90._setmaxstdio(2048)
+                                            else:
+                                                sys.exit("what the hell are you using such an old version of python for??!?")
+                                        elif sys.version_info.major > 2:
+                                            if sys.version_info.minor < 3:
+                                                #python 2.6 -> 3.2 link against msvcr90
+                                                logging.debug("Name of microsoftVisualCRuntimeLibrary: msvcr90")
+                                                newMax = ctypes.cdll.msvcr90._setmaxstdio(2048)
+                                            elif sys.version_info.minor == 3:
+                                                #python 3.3 links against msvcr100
+                                                logging.debug("Name of microsoftVisualCRuntimeLibrary: msvcr100")
+                                                newMax = ctypes.cdll.msvcr100._setmaxstdio(2048)
+                                            elif sys.version_info.minor > 4:
+                                                logging.debug("I don't have a crystal ball, trying to use msvcr100")
+                                                newMax = ctypes.cdll.msvcr100._setmaxstdio(2048)
+                                        else:
+                                            logging.error("I have no idea what Python 4+ will link against!")
+                                            sys.exit("You are from the future. I can't support you.")
+                                        #newMax = ctypes.cdll.msvcr100._setmaxstdio(2048)
+                                        if newMax != 2048:
+                                            logging.fatal("Failed to increase number of files openable at once! Got return value: %s" % str(newMax))
+                                            sys.exit("_setmaxstdio failed!")
+                                    elif numberOfFilesOfSize > 2048:
+                                        logging.fatal("There are FAR too many files of size %i! We cannot possibly open %i files at once!" % (aFileNameList[0], numberOfFilesOfSize))
+                                        sys.exit("TOO MANY FILES!")
+                                else:
+                                    if numberOfFilesOfSize > 1024:
+                                        logging.fatal("There are too many files of size %i! You'd need to increase the unix per-process limit; support for doing this automatically isn't available at this time" % len(aFileNameList[0]))
+                                        sys.exit("TOO MANY FILES!")
                             result = aWorker.computeMultipleByteArrays(aFileNameList[1], aFileNameList[0], incremental=True)
                             ##localDictOfFileHashResults[key] = [hashlibSHA1, bytearray, fileObject.rb, bool]
                             #logging.debug("\t\tknown files so far: %s" % str(knownFiles))
@@ -689,8 +759,8 @@ def main():
     parser.add_option("--showZeroByteFiles", action='store_true', dest='showZeroBytes', default=False, help="shows files of size 0")
     parser.add_option("--callGraph", action='store_true', dest='callGraph', default=False, help="PyCallGraph")
     logger = logging.getLogger('log')
-    #logging.basicConfig(level=logging.DEBUG)
-    logging.warning("This is a VERY I/O heavy program. You may want to temporairily[TODO: sp?] exclude %s from anti-malware/anti-virus monitoring, especially for Microsoft Security Essentials/Windows Defender. That said, I've never seen Malwarebytes Anti-Malware have a performance impact; leave MBAM as it is." % (str(sys.executable)))
+    logging.basicConfig(level=logging.DEBUG)
+    logging.info("This is a VERY I/O heavy program. You may want to temporarily exclude %s from anti-malware/anti-virus monitoring, especially for Microsoft Security Essentials/Windows Defender. That said, I've never seen Malwarebytes Anti-Malware have a performance impact; leave MBAM as it is." % (str(sys.executable)))
     (options, args) = parser.parse_args()
 
     #debugging = options.isDebugMode
