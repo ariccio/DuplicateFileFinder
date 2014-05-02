@@ -13,6 +13,8 @@ Alternate lists:
     http://www.briandunning.com/error-codes/?source=Windows
     http://www.madanmohan.com/p/codes.html
     http://march-hare.com/puuu/doc/Winerror.h
+THE MOST AUTHORITATIVE(?):
+    http://bugs.python.org/file7326/winerror.py
 List of errors supported by Java (sort of like a mirror):
     https://java.net/projects/jna/sources/svn/content/trunk/jnalib/contrib/platform/src/com/sun/jna/platform/win32/W32Errors.java?rev=1187
 Humorous error lists:
